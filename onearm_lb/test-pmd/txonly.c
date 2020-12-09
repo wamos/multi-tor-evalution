@@ -318,6 +318,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	pkt_alt_hdr.msgtype_flags = SWITCH_FEEDBACK_MSG;
 	pkt_alt_hdr.header_size = sizeof(struct alt_header);
+	pkt_alt_hdr.request_id = 1;
 	pkt_alt_hdr.redirection = 0;
 
 	mbp = current_fwd_lcore()->mbp;
@@ -354,12 +355,22 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 		//TODO: check whether src mac addr would have make tx-only buggy?
 		//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
+		int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.src_addr, &lookup_result);
+		if(ret >= 0){
+			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
+			rte_ether_addr_copy(lookup1, &eth_hdr.s_addr);
+			//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
+		}
+		else{
+			print_ether_addr("ETH_DST_ADDR in TX with lookup errors:", &eth_hdr.s_addr);
+		}		
+
 		// look up mac address of the selected switch ip address
-		int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &lookup_result);
+		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &lookup_result);
 		if(ret >= 0){
 			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
 			rte_ether_addr_copy(lookup1, &eth_hdr.d_addr);
-			print_ether_addr("ETH_DST_ADDR in TX:", &eth_hdr.d_addr);
+			//print_ether_addr("ETH_DST_ADDR in TX:", &eth_hdr.d_addr);
 		}
 		else{
 			print_ether_addr("ETH_DST_ADDR in TX with lookup errors:", &eth_hdr.d_addr);
