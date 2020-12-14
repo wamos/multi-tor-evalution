@@ -583,8 +583,8 @@ pkt_burst_redirection(struct fwd_stream *fs){
 
 				//after swap_ipv4, dst_addr is the src_addr here	
 				rte_be32_t actual_src_addr = ipv4_header->dst_addr;
-				print_ipaddr("actual_src_addr", ipv4_header->dst_addr);
-				print_ipaddr("actual_dst_addr", h.alt->actual_src_ip);
+				//print_ipaddr("actual_src_addr", ipv4_header->dst_addr);
+				//print_ipaddr("actual_dst_addr", h.alt->actual_src_ip);
 				// in the response, the actual dest is stored at actual_src_ip;
 				ipv4_header->dst_addr = h.alt->actual_src_ip;
 
