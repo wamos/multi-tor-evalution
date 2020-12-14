@@ -254,7 +254,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 			if(ip_service_pair->ip_dst == fs->local_ip_list[host_index]){
 				pkt_alt_hdr.service_id_list[index] = ip_service_pair->service_id;
 				pkt_alt_hdr.host_ip_list[index] = ip_service_pair->ip_dst;
-				print_ipaddr("rte_hash_iterate, ip_dst", pkt_alt_hdr.host_ip_list[index]);
+				//print_ipaddr("rte_hash_iterate, ip_dst", pkt_alt_hdr.host_ip_list[index]);
 				pkt_alt_hdr.host_queue_depth[index] = (uint16_t) *load_value;
 				index++;
 				break;
@@ -318,6 +318,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	pkt_alt_hdr.msgtype_flags = SWITCH_FEEDBACK_MSG;
 	pkt_alt_hdr.header_size = sizeof(struct alt_header);
+	pkt_alt_hdr.request_id = 1;
 	pkt_alt_hdr.redirection = 0;
 
 	mbp = current_fwd_lcore()->mbp;
@@ -351,12 +352,25 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		setup_pkt_udp_ip_headers(&pkt_ip_hdr, &pkt_udp_hdr, pkt_data_len);
 		//print_ipaddr("pkt_ip_hdr.src_addr", pkt_ip_hdr.src_addr);
 		//print_ipaddr("pkt_ip_hdr.dst_addr", pkt_ip_hdr.dst_addr);
+
+		//TODO: check whether src mac addr would have make tx-only buggy?
+		//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
+		int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.src_addr, &lookup_result);
+		if(ret >= 0){
+			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
+			rte_ether_addr_copy(lookup1, &eth_hdr.s_addr);
+			//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
+		}
+		else{
+			print_ether_addr("ETH_DST_ADDR in TX with lookup errors:", &eth_hdr.s_addr);
+		}		
+
 		// look up mac address of the selected switch ip address
-		int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &lookup_result);
+		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &lookup_result);
 		if(ret >= 0){
 			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
 			rte_ether_addr_copy(lookup1, &eth_hdr.d_addr);
-			print_ether_addr("ETH_DST_ADDR in TX:", &eth_hdr.d_addr);
+			//print_ether_addr("ETH_DST_ADDR in TX:", &eth_hdr.d_addr);
 		}
 		else{
 			print_ether_addr("ETH_DST_ADDR in TX with lookup errors:", &eth_hdr.d_addr);

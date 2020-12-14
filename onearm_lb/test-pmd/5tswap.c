@@ -30,6 +30,7 @@
 #include <rte_jhash.h>
 #include <rte_hash_crc.h>
 
+uint32_t empty_addr = RTE_IPV4(0, 0, 0, 0);
 int udp_counter = 0;
 //#ifdef REDIRECT_DEBUG_PRINT
 static inline void
@@ -328,9 +329,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			#ifdef REDIRECT_ENABLED
 			h.byte += mb->l4_len; // move the pointer!
 			uint8_t msgtype = h.alt->msgtype_flags;
-			#ifdef REDIRECT_DEBUG_PRINT
+			//#ifdef REDIRECT_DEBUG_PRINT
 			printf("req_id:%" PRIu32 ",msgtype:%" PRIu8 "\n", h.alt->request_id, msgtype);
-			#endif
+			//#endif
 			if(msgtype == SINGLE_PKT_REQ){
 				//the default destination of the request? -> alt_dst_ip
 				// set up the key for (service_id, ip) -> load lookups
@@ -573,7 +574,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				print_macaddr("req_passthrough src", &ether_header->s_addr);
 				print_macaddr("req_passthrough dst", &ether_header->d_addr);
 				print_ipaddr("req_passthrough src", ipv4_header->src_addr);
-				print_ipaddr("req_passthrough dst", ipv4_header->dst_addr);				
+				print_ipaddr("req_passthrough dst", ipv4_header->dst_addr);
 				#endif
 
 				drop_index_list[i] = 0;
@@ -581,9 +582,11 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			else if(msgtype == SINGLE_PKT_RESP_PASSTHROUGH || msgtype == SINGLE_PKT_RESP_PIGGYBACK){
 
 				//after swap_ipv4, dst_addr is the src_addr here	
-				rte_be32_t actual_src_addr = ipv4_header->dst_addr;	
-				// in the response, the actual dest is stored at alt_dst_ip
-				ipv4_header->dst_addr = h.alt->alt_dst_ip;
+				rte_be32_t actual_src_addr = ipv4_header->dst_addr;
+				print_ipaddr("actual_src_addr", ipv4_header->dst_addr);
+				print_ipaddr("actual_dst_addr", h.alt->actual_src_ip);
+				// in the response, the actual dest is stored at actual_src_ip;
+				ipv4_header->dst_addr = h.alt->actual_src_ip;
 
 				int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->dst_addr, &lookup_result);
 				if(ret >= 0){
@@ -612,7 +615,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					uint64_t* ptr = (uint64_t*) lookup_result;
 					*ptr = load;
 					#ifdef REDIRECT_DEBUG_PRINT
-					if(hash_ret == 0){
+					if(ret == 0){
 						printf("load:%" PRIu64 "\n", load);
 						printf("rte_hash_add_key_data okay!\n");
 					}
@@ -661,6 +664,10 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				int hash_ret;
 				for(uint16_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
 					ip_service_key.service_id = h.alt->service_id_list[host_index];
+					if(h.alt->host_ip_list[host_index] == empty_addr){
+						printf("ip_service_key.ip_dst: empty_addr\n");
+						continue;
+					}
 					ip_service_key.ip_dst = h.alt->host_ip_list[host_index];	
 					print_ipaddr("ip_service_key.ip_dst",ip_service_key.ip_dst);				
 					load = (uint64_t) h.alt->host_queue_depth[host_index];
@@ -668,14 +675,14 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
 					uint64_t* ptr = (uint64_t*) lookup_result;
 					*ptr = load;
-					#ifdef REDIRECT_DEBUG_PRINT
+					//#ifdef REDIRECT_DEBUG_PRINT
 					if(ret < 0)
 						printf("rte_hash_add_key_data failed!\n");					
 					else{
 						print_ipaddr("SWITCH_FEEDBACK:",ip_service_key.ip_dst);
 						printf("load:%" PRIu64 "\n", load);
 					}
-					#endif
+					//#endif
 					hash_ret += ret;
 				}
 
