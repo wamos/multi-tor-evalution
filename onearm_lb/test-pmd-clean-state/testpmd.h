@@ -12,6 +12,7 @@
 #include <rte_gro.h>
 #include <rte_gso.h>
 #include <cmdline.h>
+#include "alt_header.h"
 
 #define RTE_PORT_ALL            (~(portid_t)0x0)
 
@@ -129,6 +130,10 @@ struct fwd_stream {
 	uint64_t rx_bad_outer_l4_csum;
 	/**< received packets has bad outer l4 checksum */
 	unsigned int gro_times;	/**< GRO operation times */
+
+	//used for lookup ToR ip and mac addr 
+	struct rte_hash *ip2mac_table;  // read-only after init
+	struct rte_hash* routing_table;
 #ifdef RTE_TEST_PMD_RECORD_CORE_CYCLES
 	uint64_t     core_cycles; /**< used for RX and TX processing */
 #endif

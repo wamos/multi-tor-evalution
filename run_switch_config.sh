@@ -1,5 +1,8 @@
 #! /bin/bash
 
+#config_path=~/multi-tor-evalution/onearm_lb/test-pmd
+config_path=~/efs/multi-tor-evalution/config
+
 # we read routing table to generate /tmp/local_ip_list.txt file
 # the switch ip is the ip addr of eth1, the second NIC
 gen_host_dep_config()
@@ -11,8 +14,8 @@ IP_ADDR=$(ifconfig eth1 | awk '$1 == "inet" {print $2}' | tee -a /tmp/switch_sel
 
 rm /tmp/local_ip_list.txt
 touch /tmp/local_ip_list.txt
-read num_line < ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt > /dev/null
-tail -n ${num_line} ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt | tee -a /tmp/routing_table.tmp > /dev/null
+read num_line < ${config_path}/routing_table_aws.txt > /dev/null
+tail -n ${num_line} ${config_path}/routing_table_aws.txt | tee -a /tmp/routing_table.tmp > /dev/null
 n=0
 while read line; do # reading each line
         #echo $line
@@ -60,27 +63,27 @@ fi
 
 check_routing_config()
 {
-if [ ! -f ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt ];then
-        echo "## ERROR: Missed file ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt"
+if [ ! -f ${config_path}/routing_table_aws.txt ];then
+        echo "## ERROR: Missed file routing_table_aws.txt"
         return
 else
-	read num_line < ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt
+	read num_line < ${config_path}/routing_table_aws.txt
 	n=0
         while read line; do # reading each line
         #echo $line
         n=$((n+1))
-        done < ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt
+        done < ${config_path}/routing_table_aws.txt
 
         n=$((n-1)) #subtract out the first line
         if [ ${n} -ne ${num_line} ]; then
-                echo "invlid file of ~/multi-tor-evalution/onearm_lb/test-pmd/routing_table_aws.txt"
+                echo "invlid file of routing_table_aws.txt"
                 return
         fi
 fi
 }
 
 check_ip2mac_config(){
-	python3 check_ip2mac.py	
+	python3 check_ip2mac.py ${config_path}	
 }
 
 gen_host_dep_config

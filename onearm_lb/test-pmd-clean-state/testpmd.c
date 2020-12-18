@@ -80,6 +80,42 @@
 #define EXTMEM_HEAP_NAME "extmem"
 #define EXTBUF_ZONE_SIZE RTE_PGSIZE_2M
 
+#define HASH_RETURN_IF_ERROR(handle, cond, str, ...) do {                \
+    if (cond) {                         \
+        printf("ERROR line %d: " str "\n", __LINE__, ##__VA_ARGS__); \
+        if (handle) rte_hash_free(handle);          \
+        return -1;                      \
+    }                               \
+} while(0)
+
+#define TOTAL_ENTRY 128
+
+static struct rte_hash_parameters ip2mac_params = {
+	.name = "ip2mac",
+    .entries = TOTAL_ENTRY,
+    .key_len = sizeof(uint32_t),
+    .hash_func = rte_jhash,
+    .hash_func_init_val = 0,
+    .socket_id = 0,
+};
+
+static struct rte_hash_parameters routing_params = {
+	.name = "routing",
+    .entries = TOTAL_ENTRY,
+    .key_len = sizeof(uint32_t),
+    .hash_func = rte_jhash,
+    .hash_func_init_val = 0,
+    .socket_id = 0,
+};
+
+uint32_t* ip2mac_keys;
+uint64_t* ip2mac_values;
+uint32_t* routing_keys;
+uint64_t* routing_values;
+struct rte_hash* ip2mac_table;   // <- ip_mac*.txt
+struct rte_hash* routing_table;  // <- dest->next-hop
+uint32_t client_self_ip;
+
 uint16_t verbose_level = 0; /**< Silent by default. */
 int testpmd_logtype; /**< Log type for testpmd logs */
 
@@ -1381,6 +1417,139 @@ check_nb_hairpinq(queueid_t hairpinq)
 		       hairpinq, allowed_max_hairpinq, pid);
 		return -1;
 	}
+	return 0;
+}
+
+static inline void
+print_ether_addr(const char *what, const struct rte_ether_addr *eth_addr)
+{
+	char buf[RTE_ETHER_ADDR_FMT_SIZE];
+	rte_ether_format_addr(buf, RTE_ETHER_ADDR_FMT_SIZE, eth_addr);
+	printf("%s%s\n", what, buf);
+}
+
+static inline void
+print_ipddr(const char* string, rte_be32_t ip_addr){
+	uint32_t ipaddr = rte_be_to_cpu_32(ip_addr);
+	uint8_t src_addr[4];
+	src_addr[0] = (uint8_t) (ipaddr >> 24) & 0xff;
+	src_addr[1] = (uint8_t) (ipaddr >> 16) & 0xff;
+	src_addr[2] = (uint8_t) (ipaddr >> 8) & 0xff;
+	src_addr[3] = (uint8_t) ipaddr & 0xff;
+	printf("%s:%" PRIu8 ".%" PRIu8 ".%" PRIu8 ".%" PRIu8 "\n", string,
+			src_addr[0], src_addr[1], src_addr[2], src_addr[3]);
+}
+
+static int 
+init_hashtable(void){
+	ip2mac_table = rte_hash_create(&ip2mac_params);
+	HASH_RETURN_IF_ERROR(ip2mac_table, ip2mac_table == NULL, "ip2mac_table creation failed");
+
+	routing_table = rte_hash_create(&routing_params);
+	HASH_RETURN_IF_ERROR(routing_table, routing_table == NULL, "routing_table creation failed");
+
+	ip2mac_keys = rte_malloc("ip2mac_keys", sizeof(uint32_t) * TOTAL_ENTRY, 0);
+	if(ip2mac_keys == NULL){
+		rte_panic("malloc failure\n");
+	}
+
+	ip2mac_values = rte_zmalloc("ip2mac_values", sizeof(uint64_t) * TOTAL_ENTRY, 0);
+	if(ip2mac_values == NULL){
+		rte_panic("malloc failure\n");
+	}
+
+	routing_keys = rte_zmalloc("routing_keys", sizeof(uint32_t) * TOTAL_ENTRY, 0);
+	if(routing_keys == NULL){
+		rte_panic("malloc failure\n");
+	}
+
+	routing_values = rte_zmalloc("routing_values", sizeof(uint64_t) * TOTAL_ENTRY, 0);
+	if(routing_values == NULL){
+		rte_panic("malloc failure\n");
+	}
+	
+	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
+	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
+	// * Find a key-value pair in the hash table. This operation is multi-thread safe with regarding to other lookup threads
+	//int rte_hash_lookup_data(const struct rte_hash *h, const void *key, void **data);
+
+	//load text from files
+	void* lookup_result;
+	struct rte_ether_addr* eth_addr_ptr;
+	//printf("ether_addr size: %zu\n", sizeof(struct rte_ether_addr)); // 6 bytes!
+	char *ip_addr = (char*) malloc(20);
+	char *nexthop_addr = (char*) malloc(20);
+	char *mac_addr = (char*) malloc(50);
+	int service, load;
+	int num_entries;
+
+	FILE* fp = fopen("./ip_mac_aws.txt", "r");
+	fscanf(fp, "%d\n", &num_entries);
+	printf("ip_mac: num_entries %d\n", num_entries);
+	for(int i = 0; i < num_entries; i++){
+		fscanf(fp, "%s %s\n", ip_addr, mac_addr);	
+		int ret = rte_ether_unformat_addr(mac_addr, (struct rte_ether_addr*) &ip2mac_values[i]);		
+		ip2mac_keys[i] = inet_addr(ip_addr);
+		#ifdef REDIRECT_DEBUG_PRINT
+		eth_addr_ptr = (struct rte_ether_addr*) &ip2mac_values[i];
+		if(ret >= 0)
+			printf("%s,%s\n", ip_addr, mac_addr);
+		#endif
+
+		//load data into hash table here!
+		ret = rte_hash_add_key_data(ip2mac_table, (void*) &ip2mac_keys[i], (void *)((uintptr_t) &ip2mac_values[i]));
+		HASH_RETURN_IF_ERROR(ip2mac_table, ret < 0, "rte_hash_add_key_data failed with eth_addr");
+
+		#ifdef REDIRECT_DEBUG_PRINT
+		ret = rte_hash_lookup_data(ip2mac_table, (void*) &ip2mac_keys[i], &lookup_result);
+		HASH_RETURN_IF_ERROR(ip2mac_table, ret < 0, "rte_hash_lookup_data failed with eth_addr1");
+
+		struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
+		printf("eth_addr insert: %02" PRIx8 " %02" PRIx8 " %02" PRIx8
+			" %02" PRIx8 " %02" PRIx8 " %02" PRIx8 "\n",
+		eth_addr_ptr->addr_bytes[0], eth_addr_ptr->addr_bytes[1],
+		eth_addr_ptr->addr_bytes[2], eth_addr_ptr->addr_bytes[3],
+		eth_addr_ptr->addr_bytes[4], eth_addr_ptr->addr_bytes[5]);
+
+		printf("eth_addr lookup: %02" PRIx8 " %02" PRIx8 " %02" PRIx8
+			" %02" PRIx8 " %02" PRIx8 " %02" PRIx8 "\n",
+		lookup1->addr_bytes[0], lookup1->addr_bytes[1],
+		lookup1->addr_bytes[2], lookup1->addr_bytes[3],
+		lookup1->addr_bytes[4], lookup1->addr_bytes[5]);
+		#endif
+	}
+
+	fp = fopen("./routing_table_aws.txt", "r");
+	fscanf(fp, "%d\n", &num_entries);
+	printf("routing table: num_entries %d\n", num_entries);
+	for(int i = 0; i < num_entries; i++){
+		fscanf(fp, "%s %s\n", ip_addr, nexthop_addr);
+		// local-ip -> ToR ip
+		routing_keys[i]   = inet_addr(ip_addr);
+		routing_values[i] = inet_addr(nexthop_addr);
+
+		int ret = rte_hash_add_key_data(routing_table, (void*) &routing_keys[i], (void *)((uintptr_t) &routing_values[i]));
+		HASH_RETURN_IF_ERROR(routing_table, ret < 0, "rte_hash_add_key_data failed with routing table");
+		//#ifdef REDIRECT_DEBUG_PRINT
+		ret = rte_hash_lookup_data(routing_table, (void*) &routing_keys[i], &lookup_result);
+		uint32_t* addr = (uint32_t*) lookup_result;
+		print_ipddr("ipv4_addr dest:", routing_keys[i]);
+		print_ipddr("ipv4_addr ToR :", *addr);
+		//#endif
+	}
+	
+	free(ip_addr);
+	free(nexthop_addr);
+	free(mac_addr);
+	fclose(fp);
+
+	// rte_free(ip2load_keys);
+	// rte_free(ip2load_values);
+	// rte_free(ip2mac_keys);
+	// rte_free(ip2mac_values);
+	// rte_hash_free(ip2load_table);
+	// rte_hash_free(ip2mac_table);
+
 	return 0;
 }
 

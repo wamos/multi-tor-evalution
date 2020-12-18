@@ -103,6 +103,6 @@ setup_target()
 }
 
 setup_target
-#set_numa_pages
+set_numa_pages
 # There's no need to load kernel modules
 # There's no need to use the dpdk-devbind.py script to bind dpdk to mellanox device

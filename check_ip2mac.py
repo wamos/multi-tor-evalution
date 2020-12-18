@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import sys, os
+#file_prefix = "./onearm_lb/test-pmd/"
 
-file_prefix = "./onearm_lb/test-pmd/"
+file_prefix = sys.argv[1]
 ip2mac_filename  = "ip_mac_aws.txt"
 routing_filename = "routing_table_aws.txt" 
 
