@@ -14,7 +14,8 @@ else
 fi
 
 IP_ADDR=$(ifconfig eth1 | awk '$1 == "inet" {print $2}' | tee -a /tmp/client_self_ip.txt)
-echo ${IP_ADDR}
+#echo ${IP_ADDR}
+cat /tmp/client_self_ip.txt
 
 if [ -f /tmp/replica_addr_list.txt ];then
 	rm /tmp/replica_addr_list.txt
@@ -28,10 +29,12 @@ rand=0
 rand=$(od -An -N1 -i /dev/random)
 rand=$((rand%num_line))
 line_num=$((rand+2))
-echo $line_num
+#echo $line_num
 
 ## 2. print random-th line to replica_addr_list.txt
 sed -n ${line_num}p ${config_path}/replica_service_ip_aws.txt  > /tmp/replica_addr_list.txt
+echo "/tmp/replica_addr_list.txt:"
+cat /tmp/replica_addr_list.txt
 }
 
 check_host_dep_config()
