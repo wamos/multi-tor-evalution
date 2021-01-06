@@ -1,19 +1,27 @@
 #! /bin/bash
 
 #config_path=~/multi-tor-evalution/onearm_lb/test-pmd
-config_path=~/efs/multi-tor-evalution/config
+config_path=~/efs/multi-tor-evalution/config/
 
 # we read routing table to generate /tmp/local_ip_list.txt file
 # the switch ip is the ip addr of eth1, the second NIC
 gen_host_dep_config()
 {
-rm /tmp/switch_self_ip.txt
-touch /tmp/switch_self_ip.txt
+if [ -f /tmp/switch_self_ip.txt ];then
+	rm /tmp/switch_self_ip.txt
+else
+	touch /tmp/switch_self_ip.txt
+fi
+
 IP_ADDR=$(ifconfig eth1 | awk '$1 == "inet" {print $2}' | tee -a /tmp/switch_self_ip.txt)
 #echo ${IP_ADDR}
 
-rm /tmp/local_ip_list.txt
-touch /tmp/local_ip_list.txt
+if [ -f /tmp/local_ip_list.txt ];then
+	rm /tmp/local_ip_list.txt
+else
+	touch /tmp/local_ip_list.txt
+fi
+
 read num_line < ${config_path}/routing_table_aws.txt > /dev/null
 tail -n ${num_line} ${config_path}/routing_table_aws.txt | tee -a /tmp/routing_table.tmp > /dev/null
 n=0

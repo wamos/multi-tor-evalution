@@ -72,7 +72,7 @@ fi
 }
 
 check_ip2mac_config(){
-	python3 check_ip2mac.py ${config_path}	
+	python3 check_ip2mac.py ${config_path}/	
 }
 
 random_test(){

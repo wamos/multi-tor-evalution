@@ -61,6 +61,15 @@
 #include <rte_latencystats.h>
 #endif
 
+#include <netinet/in.h> // for parse string to uint32_t, because typedef uint32_t in_addr_t;
+#include <arpa/inet.h>
+#include <sys/socket.h>
+
+#include <rte_hash.h>
+#include <rte_fbk_hash.h>
+#include <rte_jhash.h>
+#include <rte_hash_crc.h>
+
 #include "testpmd.h"
 
 #ifndef MAP_HUGETLB
@@ -80,6 +89,7 @@
 #define EXTMEM_HEAP_NAME "extmem"
 #define EXTBUF_ZONE_SIZE RTE_PGSIZE_2M
 
+//ST: hashtable related declarations
 #define HASH_RETURN_IF_ERROR(handle, cond, str, ...) do {                \
     if (cond) {                         \
         printf("ERROR line %d: " str "\n", __LINE__, ##__VA_ARGS__); \
@@ -108,12 +118,19 @@ static struct rte_hash_parameters routing_params = {
     .socket_id = 0,
 };
 
+const char config_prefix[] = "../../config/";
+const char perhost_config_prefix[] = "/tmp/";
+const char file_type[] = ".txt";
+char config_filename[100];
+struct timespec start_ts, stop_ts;
+
 uint32_t* ip2mac_keys;
 uint64_t* ip2mac_values;
 uint32_t* routing_keys;
 uint64_t* routing_values;
 struct rte_hash* ip2mac_table;   // <- ip_mac*.txt
 struct rte_hash* routing_table;  // <- dest->next-hop
+struct alt_header client_alt_header;
 uint32_t client_self_ip;
 
 uint16_t verbose_level = 0; /**< Silent by default. */
@@ -1440,8 +1457,9 @@ print_ipddr(const char* string, rte_be32_t ip_addr){
 			src_addr[0], src_addr[1], src_addr[2], src_addr[3]);
 }
 
+//ST: init hash table and other data sturctures
 static int 
-init_hashtable(void){
+init_hashtable(void){	
 	ip2mac_table = rte_hash_create(&ip2mac_params);
 	HASH_RETURN_IF_ERROR(ip2mac_table, ip2mac_table == NULL, "ip2mac_table creation failed");
 
@@ -1478,12 +1496,18 @@ init_hashtable(void){
 	struct rte_ether_addr* eth_addr_ptr;
 	//printf("ether_addr size: %zu\n", sizeof(struct rte_ether_addr)); // 6 bytes!
 	char *ip_addr = (char*) malloc(20);
+	char *ip_addr2 = (char*) malloc(20);
+	char *ip_addr3 = (char*) malloc(20);
 	char *nexthop_addr = (char*) malloc(20);
 	char *mac_addr = (char*) malloc(50);
-	int service, load;
+	int service = 0 , load = 0, num_replica = 0;
 	int num_entries;
 
-	FILE* fp = fopen("./ip_mac_aws.txt", "r");
+	char* config_name = "ip_mac_aws" ;
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+
+	//FILE* fp = fopen("./ip_mac_aws.txt", "r");
+	FILE* fp = fopen(config_filename, "r");
 	fscanf(fp, "%d\n", &num_entries);
 	printf("ip_mac: num_entries %d\n", num_entries);
 	for(int i = 0; i < num_entries; i++){
@@ -1519,7 +1543,10 @@ init_hashtable(void){
 		#endif
 	}
 
-	fp = fopen("./routing_table_aws.txt", "r");
+	config_name = "routing_table_aws";
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
+	//fp = fopen("./routing_table_aws.txt", "r");
 	fscanf(fp, "%d\n", &num_entries);
 	printf("routing table: num_entries %d\n", num_entries);
 	for(int i = 0; i < num_entries; i++){
@@ -1537,8 +1564,33 @@ init_hashtable(void){
 		print_ipddr("ipv4_addr ToR :", *addr);
 		//#endif
 	}
+
+	//per host replica addr list:
+	// [# of replica, N] service_id ip_1 ip_2 .. ip_N
+	// 3 [# of replica] 2 [service id] 172.31.36.20 172.31.42.171 172.31.42.171
+	config_name = "replica_addr_list"; 
+	snprintf(config_filename, sizeof(perhost_config_prefix) + 30 + sizeof(file_type), "%s%s%s", perhost_config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
+	printf("per-host client replica addr list:");
+	fscanf(fp, "%d %d %s %s %s\n", &num_replica, &service, ip_addr, ip_addr2, ip_addr3);
+	if(num_replica != NUM_REPLICA){
+		rte_exit(EXIT_FAILURE, "incorrect number of replicas! abort now ....\n");
+	}
+	client_alt_header.alt_dst_ip = inet_addr(ip_addr);
+	client_alt_header.service_id = (uint16_t) service;
+	client_alt_header.replica_dst_list[0] = inet_addr(ip_addr);
+	client_alt_header.replica_dst_list[1] = inet_addr(ip_addr2);
+	client_alt_header.replica_dst_list[2] = inet_addr(ip_addr3);
+
+	config_name = "client_self_ip";
+	snprintf(config_filename, sizeof(perhost_config_prefix) + 30 + sizeof(file_type), "%s%s%s", perhost_config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
+	fscanf(fp, "%s\n", ip_addr);
+	client_alt_header.actual_src_ip = inet_addr(ip_addr);
 	
 	free(ip_addr);
+	free(ip_addr2);
+	free(ip_addr3);
 	free(nexthop_addr);
 	free(mac_addr);
 	fclose(fp);
@@ -1715,11 +1767,18 @@ init_config(void)
 		fwd_lcores[lc_id]->gso_ctx.flag = 0;
 	}
 
+	//ST: we need to init hashtables here, then we can init fwd_stream which has pointers to hashtables
+	init_hashtable();
+
 	/* Configuration of packet forwarding streams. */
 	if (init_fwd_streams() < 0)
 		rte_exit(EXIT_FAILURE, "FAIL from init_fwd_streams()\n");
 
-	fwd_config_setup();
+	cur_fwd_config.fwd_eng = cur_fwd_eng;
+	simple_fwd_config_setup();
+	//rss_fwd_config_setup();
+	//replica_selection_fwd_config_setup();
+	//fwd_config_setup();
 
 	/* create a gro context for each lcore */
 	gro_param.gro_types = RTE_GRO_TCP_IPV4;
@@ -1842,6 +1901,10 @@ init_fwd_streams(void)
 			if (fwd_streams[sm_id] == NULL)
 				rte_exit(EXIT_FAILURE, "rte_zmalloc"
 					 "(struct fwd_stream) failed\n");
+			//TODO: if the assignments are corret?					 
+			fwd_streams[sm_id]->ip2mac_table = ip2mac_table;
+			fwd_streams[sm_id]->routing_table = routing_table;
+			fwd_streams[sm_id]->client_alt_header = client_alt_header;
 		}
 	}
 
@@ -1934,6 +1997,12 @@ fwd_stream_stats_display(streamid_t stream_id)
 	printf("  RX-packets: %-14"PRIu64" TX-packets: %-14"PRIu64
 	       " TX-dropped: %-14"PRIu64,
 	       fs->rx_packets, fs->tx_packets, fs->fwd_dropped);
+
+	//ST: TODO: calculate the rate here and print!
+	double diff_us = (double) clock_gettime_diff_us(&start_ts, &stop_ts);
+	double rx_packets = (double) fs->rx_packets;
+	double tx_packets = (double) fs->tx_packets;
+	printf("\n  RX-rate: %lf TX-rate: %lf", rx_packets/diff_us, tx_packets/diff_us);
 
 	/* if checksum mode */
 	if (cur_fwd_eng == &csum_fwd_engine) {
@@ -2232,40 +2301,15 @@ run_pkt_fwd_on_lcore(struct fwd_lcore *fc, packet_fwd_t pkt_fwd)
 	struct fwd_stream **fsm;
 	streamid_t nb_fs;
 	streamid_t sm_id;
-#ifdef RTE_LIBRTE_BITRATE
-	uint64_t tics_per_1sec;
-	uint64_t tics_datum;
-	uint64_t tics_current;
-	uint16_t i, cnt_ports;
 
-	cnt_ports = nb_ports;
-	tics_datum = rte_rdtsc();
-	tics_per_1sec = rte_get_timer_hz();
-#endif
+	//ST: start the timer here!
+	clock_gettime(CLOCK_REALTIME, &start_ts);
+
 	fsm = &fwd_streams[fc->stream_idx];
 	nb_fs = fc->stream_nb;
 	do {
 		for (sm_id = 0; sm_id < nb_fs; sm_id++)
 			(*pkt_fwd)(fsm[sm_id]);
-#ifdef RTE_LIBRTE_BITRATE
-		if (bitrate_enabled != 0 &&
-				bitrate_lcore_id == rte_lcore_id()) {
-			tics_current = rte_rdtsc();
-			if (tics_current - tics_datum >= tics_per_1sec) {
-				/* Periodic bitrate calculation */
-				for (i = 0; i < cnt_ports; i++)
-					rte_stats_bitrate_calc(bitrate_data,
-						ports_ids[i]);
-				tics_datum = tics_current;
-			}
-		}
-#endif
-#ifdef RTE_LIBRTE_LATENCY_STATS
-		if (latencystats_enabled != 0 &&
-				latencystats_lcore_id == rte_lcore_id())
-			rte_latencystats_update();
-#endif
-
 	} while (! fc->stopped);
 }
 
@@ -2359,26 +2403,10 @@ start_packet_forwarding(int with_tx_first)
 		return;
 	}
 
-
-	if(dcb_test) {
-		for (i = 0; i < nb_fwd_ports; i++) {
-			pt_id = fwd_ports_ids[i];
-			port = &ports[pt_id];
-			if (!port->dcb_flag) {
-				printf("In DCB mode, all forwarding ports must "
-                                       "be configured in this mode.\n");
-				return;
-			}
-		}
-		if (nb_fwd_lcores == 1) {
-			printf("In DCB mode,the nb forwarding cores "
-                               "should be larger than 1.\n");
-			return;
-		}
-	}
 	test_done = 0;
 
-	fwd_config_setup();
+	//simple_fwd_config_setup();
+	//fwd_config_setup();
 
 	if(!no_flush_rx)
 		flush_fwd_rx_queues();
@@ -2392,23 +2420,7 @@ start_packet_forwarding(int with_tx_first)
 		port = &ports[pt_id];
 		map_port_queue_stats_mapping_registers(pt_id, port);
 	}
-	if (with_tx_first) {
-		port_fwd_begin = tx_only_engine.port_fwd_begin;
-		if (port_fwd_begin != NULL) {
-			for (i = 0; i < cur_fwd_config.nb_fwd_ports; i++)
-				(*port_fwd_begin)(fwd_ports_ids[i]);
-		}
-		while (with_tx_first--) {
-			launch_packet_forwarding(
-					run_one_txonly_burst_on_core);
-			rte_eal_mp_wait_lcore();
-		}
-		port_fwd_end = tx_only_engine.port_fwd_end;
-		if (port_fwd_end != NULL) {
-			for (i = 0; i < cur_fwd_config.nb_fwd_ports; i++)
-				(*port_fwd_end)(fwd_ports_ids[i]);
-		}
-	}
+
 	launch_packet_forwarding(start_pkt_forward_on_core);
 }
 
@@ -2436,6 +2448,9 @@ stop_packet_forwarding(void)
 			(*port_fwd_end)(pt_id);
 		}
 	}
+
+	//ST: stop the timer here
+	clock_gettime(CLOCK_REALTIME, &stop_ts);
 
 	fwd_stats_display();
 
@@ -3854,11 +3869,6 @@ main(int argc, char** argv)
 	if (ret != 0)
 		rte_exit(EXIT_FAILURE, "Cannot register for ethdev events");
 
-#ifdef RTE_LIBRTE_PDUMP
-	/* initialize packet capture framework */
-	rte_pdump_init();
-#endif
-
 	count = 0;
 	RTE_ETH_FOREACH_DEV(port_id) {
 		ports_ids[count] = port_id;
@@ -3871,25 +3881,16 @@ main(int argc, char** argv)
 	/* allocate port structures, and init them */
 	init_port();
 
-	set_def_fwd_config();
+	//expand set_def_fwd_config();
+	set_default_fwd_lcores_config();
+	set_def_peer_eth_addrs();
+	set_default_fwd_ports_config();
+
 	if (nb_lcores == 0)
 		rte_exit(EXIT_FAILURE, "No cores defined for forwarding\n"
 			 "Check the core mask argument\n");
 
-	/* Bitrate/latency stats disabled by default */
-#ifdef RTE_LIBRTE_BITRATE
-	bitrate_enabled = 0;
-#endif
-#ifdef RTE_LIBRTE_LATENCY_STATS
-	latencystats_enabled = 0;
-#endif
-
-	/* on FreeBSD, mlockall() is disabled by default */
-#ifdef RTE_EXEC_ENV_FREEBSD
-	do_mlockall = 0;
-#else
 	do_mlockall = 1;
-#endif
 
 	argc -= diag;
 	argv += diag;
@@ -3921,30 +3922,6 @@ main(int argc, char** argv)
 
 	init_config();
 
-	if (hot_plug) {
-		ret = rte_dev_hotplug_handle_enable();
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail to enable hotplug handling.");
-			return -1;
-		}
-
-		ret = rte_dev_event_monitor_start();
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail to start device event monitoring.");
-			return -1;
-		}
-
-		ret = rte_dev_event_callback_register(NULL,
-			dev_event_callback, NULL);
-		if (ret) {
-			RTE_LOG(ERR, EAL,
-				"fail  to register device event callback\n");
-			return -1;
-		}
-	}
-
 	if (!no_device_start && start_port(RTE_PORT_ALL) != 0)
 		rte_exit(EXIT_FAILURE, "Start ports failed\n");
 
@@ -3956,44 +3933,7 @@ main(int argc, char** argv)
 				port_id, rte_strerror(-ret));
 	}
 
-	/* Init metrics library */
-	rte_metrics_init(rte_socket_id());
 
-#ifdef RTE_LIBRTE_LATENCY_STATS
-	if (latencystats_enabled != 0) {
-		int ret = rte_latencystats_init(1, NULL);
-		if (ret)
-			printf("Warning: latencystats init()"
-				" returned error %d\n",	ret);
-		printf("Latencystats running on lcore %d\n",
-			latencystats_lcore_id);
-	}
-#endif
-
-	/* Setup bitrate stats */
-#ifdef RTE_LIBRTE_BITRATE
-	if (bitrate_enabled != 0) {
-		bitrate_data = rte_stats_bitrate_create();
-		if (bitrate_data == NULL)
-			rte_exit(EXIT_FAILURE,
-				"Could not allocate bitrate data.\n");
-		rte_stats_bitrate_reg(bitrate_data);
-	}
-#endif
-
-#ifdef RTE_LIBRTE_CMDLINE
-	if (strlen(cmdline_filename) != 0)
-		cmdline_read_from_file(cmdline_filename);
-
-	if (interactive == 1) {
-		if (auto_start) {
-			printf("Start automatic packet forwarding\n");
-			start_packet_forwarding(0);
-		}
-		prompt();
-		pmd_test_exit();
-	} else
-#endif
 	{
 		char c;
 		int rc;

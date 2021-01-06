@@ -2349,7 +2349,7 @@ fwd_topology_tx_port_get(portid_t rxp)
 	}
 }
 
-static void
+void
 simple_fwd_config_setup(void)
 {
 	portid_t i;
@@ -2376,6 +2376,8 @@ simple_fwd_config_setup(void)
 		fwd_streams[i]->rx_queue  = 0;
 		fwd_streams[i]->tx_port   =
 				fwd_ports_ids[fwd_topology_tx_port_get(i)];
+		portid_t pair_port = fwd_ports_ids[fwd_topology_tx_port_get(i)];
+		printf("fwd_topology_tx_port_get:%" PRIu16 "\n", pair_port);
 		fwd_streams[i]->tx_queue  = 0;
 		fwd_streams[i]->peer_addr = fwd_streams[i]->tx_port;
 		fwd_streams[i]->retry_enabled = retry_enabled;
@@ -2387,7 +2389,7 @@ simple_fwd_config_setup(void)
  * being composed of a RX queue to poll on a RX port for input messages,
  * associated with a TX queue of a TX port where to send forwarded packets.
  */
-static void
+void
 rss_fwd_config_setup(void)
 {
 	portid_t   rxp;

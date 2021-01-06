@@ -52,6 +52,11 @@ struct switch_exchange {
   uint16_t host_queue_depth[HOST_PER_RACK];
 }__attribute__((__packed__));
 
+struct replica_addr_list{
+  int list_size;
+  uint16_t service_id;
+  uint32_t replica_dst_list[NUM_REPLICA];
+};
 
 // msgtype_flags field details: suspended for now
 // -> bit 0,1: unused now

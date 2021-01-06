@@ -12,7 +12,8 @@
 #include <rte_gro.h>
 #include <rte_gso.h>
 #include <cmdline.h>
-#include "alt_header.h"
+#include "../test-pmd/alt_header.h"
+#include "../test-pmd/nanosleep.h"
 
 #define RTE_PORT_ALL            (~(portid_t)0x0)
 
@@ -134,6 +135,7 @@ struct fwd_stream {
 	//used for lookup ToR ip and mac addr 
 	struct rte_hash *ip2mac_table;  // read-only after init
 	struct rte_hash* routing_table;
+	struct alt_header client_alt_header;
 #ifdef RTE_TEST_PMD_RECORD_CORE_CYCLES
 	uint64_t     core_cycles; /**< used for RX and TX processing */
 #endif
@@ -422,7 +424,9 @@ extern struct rte_fdir_conf fdir_conf;
 /*
  * Configuration of packet segments used by the "txonly" processing engine.
  */
-#define TXONLY_DEF_PACKET_LEN 64
+//ST: tx packets are fixed sized here
+#define TXONLY_DEF_PACKET_LEN 256
+#define MAX_SINGLE_THREAD_CONNECTIONS 100
 extern uint16_t tx_pkt_length; /**< Length of TXONLY packet */
 extern uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT]; /**< Seg. lengths */
 extern uint8_t  tx_pkt_nb_segs; /**< Number of segments in TX packets */
@@ -710,6 +714,8 @@ void fwd_lcores_config_display(void);
 void pkt_fwd_config_display(struct fwd_config *cfg);
 void rxtx_config_display(void);
 void fwd_config_setup(void);
+void simple_fwd_config_setup(void);
+void rss_fwd_config_setup(void);
 void set_def_fwd_config(void);
 void reconfig(portid_t new_port_id, unsigned socket_id);
 int init_fwd_streams(void);
