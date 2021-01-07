@@ -132,6 +132,7 @@ struct rte_hash* ip2mac_table;   // <- ip_mac*.txt
 struct rte_hash* routing_table;  // <- dest->next-hop
 struct alt_header client_alt_header;
 uint32_t client_self_ip;
+double* poisson_arrival;
 
 uint16_t verbose_level = 0; /**< Silent by default. */
 int testpmd_logtype; /**< Log type for testpmd logs */
@@ -1485,6 +1486,18 @@ init_hashtable(void){
 	if(routing_values == NULL){
 		rte_panic("malloc failure\n");
 	}
+
+	poisson_arrival = rte_zmalloc("poisson_arrival", sizeof(double) * POISSON_ARRIVAL_ARRAY_SIZE, 0);
+	if(poisson_arrival == NULL){
+		rte_panic("malloc failure\n");
+	}
+
+	double rate = 2000.0;
+	GenPoissonArrival(rate, 100, poisson_arrival);
+	for(int n = 0; n < 100; n++){  
+        //printf("%" PRIu64 ", %.5lf\n", (uint64_t) round(poisson_arrival[n]), poisson_arrival[n]);
+        printf ("%.5f\n", poisson_arrival[n]*1000000.0);
+    }
 	
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
@@ -1595,11 +1608,8 @@ init_hashtable(void){
 	free(mac_addr);
 	fclose(fp);
 
-	// rte_free(ip2load_keys);
-	// rte_free(ip2load_values);
 	// rte_free(ip2mac_keys);
 	// rte_free(ip2mac_values);
-	// rte_hash_free(ip2load_table);
 	// rte_hash_free(ip2mac_table);
 
 	return 0;
@@ -3165,6 +3175,16 @@ pmd_test_exit(void)
 		if (mempools[i])
 			rte_mempool_free(mempools[i]);
 	}
+
+	    //ST: free hashtable and allocated key-value memory
+        rte_free(ip2mac_keys);
+        rte_free(ip2mac_values);
+        rte_free(routing_keys);
+        rte_free(routing_values);
+		rte_free(poisson_arrival);
+
+        rte_hash_free(ip2mac_table);
+        rte_hash_free(routing_table);
 
 	printf("\nBye...\n");
 }

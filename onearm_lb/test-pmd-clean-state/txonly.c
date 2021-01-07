@@ -52,7 +52,6 @@ struct req_header {
 	uint64_t request_id;    // Request identifier
 } __attribute__((__packed__)); // or use __rte_packed
 
-#define TS_ARRAY_SIZE 10240
 struct timestamp_pair{
 	struct timespec	tx_timestamp;
 	struct timespec	rx_timestamp;
