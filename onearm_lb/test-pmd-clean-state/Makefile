@@ -10,7 +10,7 @@ ifeq ($(CONFIG_RTE_TEST_PMD),y)
 #
 APP = testpmd
 
-CFLAGS += -O3
+CFLAGS += -O3 -g
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-deprecated-declarations
 
@@ -38,7 +38,16 @@ SRCS-$(CONFIG_RTE_LIBRTE_IEEE1588) += ieee1588fwd.c
 SRCS-$(CONFIG_RTE_LIBRTE_BPF) += bpf_cmd.c
 SRCS-y += util.c
 
+#add the following two lines to ~/.bash_profile if linking gsl keeps failing
+LD_LIBRARY_PATH=/usr/local/lib
+#export LD_LIBRARY_PATH
+
+# link gsl library, -lm will be linked at $(RTE_SDK)/mk/rte.app.mk
+LDFLAGS += -lgsl -lgslcblas
+
 ifeq ($(CONFIG_RTE_BUILD_SHARED_LIB),y)
+
+#LDFLAGS += -lgsl -lgslcblas
 
 ifeq ($(CONFIG_RTE_LIBRTE_PMD_BOND),y)
 LDLIBS += -lrte_pmd_bond
