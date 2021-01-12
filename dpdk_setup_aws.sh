@@ -63,7 +63,7 @@ load_igb_uio_module()
 
 	/sbin/lsmod | grep -s uio > /dev/null
 	if [ $? -ne 0 ] ; then
-		modinfo uio > /dev/null
+		/sbin/modinfo uio > /dev/null
 		if [ $? -eq 0 ]; then
 			echo "Loading uio module"
 			sudo /sbin/modprobe uio

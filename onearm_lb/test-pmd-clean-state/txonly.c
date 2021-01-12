@@ -241,32 +241,34 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 
 	//ip layer setup
 	pkt_ip_hdr.src_addr = fs->client_alt_header.actual_src_ip; // client_self_ip
-	pkt_ip_hdr.dst_addr = fs->client_alt_header.alt_dst_ip;
-	pkt_ip_hdr.hdr_checksum = 0;
-    pkt_ip_hdr.hdr_checksum = rte_ipv4_cksum(&pkt_ip_hdr);
+	//pkt_ip_hdr.dst_addr = fs->client_alt_header.alt_dst_ip;
 
 	int ret;
 	// lookup routing table for ToR's ip as dest ip
-	// void* lookup_result;
-	// uint32_t* nexthop_ptr;
-	// uint32_t dest_addr = fs->client_alt_header.alt_dst_ip;
-	// ret = rte_hash_lookup_data(fs->routing_table, (void*) &dest_addr, &lookup_result);
-	// if(ret >= 0){
-	// 	nexthop_ptr = (uint32_t*) lookup_result;
-	// 	pkt_ip_hdr.dst_addr = *nexthop_ptr;
-	// }
-	// else{
-	// 	if (errno == ENOENT){
-	// 		print_ipaddr("dst ip addr", dest_addr);
-	// 		printf("value not found\n");
-	// 	}
-	// 	else if(errno == EINVAL){
-	// 		printf("invalid parameters\n");
-	// 	}
-	// 	else{
-	// 		printf("unknown!\n");
-	// 	}
-	// }
+	void* lookup_result;
+	uint32_t* nexthop_ptr;
+	uint32_t dest_addr = fs->client_alt_header.alt_dst_ip;
+	ret = rte_hash_lookup_data(fs->routing_table, (void*) &dest_addr, &lookup_result);
+	if(ret >= 0){
+		nexthop_ptr = (uint32_t*) lookup_result;
+		pkt_ip_hdr.dst_addr = *nexthop_ptr;
+		//print_ipaddr("ToR ip addr", pkt_ip_hdr.dst_addr);
+	}
+	else{
+		if (errno == ENOENT){
+			print_ipaddr("dst ip addr", dest_addr);
+			printf("value not found\n");
+		}
+		else if(errno == EINVAL){
+			printf("invalid parameters\n");
+		}
+		else{
+			printf("unknown!\n");
+		}
+	}
+
+	pkt_ip_hdr.hdr_checksum = 0;
+    pkt_ip_hdr.hdr_checksum = rte_ipv4_cksum(&pkt_ip_hdr);
 
 	//MAC layer setup
 	//set src mac addr
@@ -274,7 +276,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.src_addr, &mac_lookup_result);
 	if(ret >= 0){
 		struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) mac_lookup_result;
-		print_ipaddr("src_ipaddr", pkt_ip_hdr.src_addr);
+		//print_ipaddr("src_ipaddr", pkt_ip_hdr.src_addr);
 		//print_ether_addr("eth_addr lookup", lookup1);
 		rte_ether_addr_copy(lookup1, &eth_hdr->s_addr); // ether_header->s_addr = lookup1
 	}
@@ -295,7 +297,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &mac_lookup_result);
 	if(ret >= 0){
 		struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) mac_lookup_result;
-		print_ipaddr("dst_ipaddr", pkt_ip_hdr.dst_addr);
+		//print_ipaddr("dst_ipaddr", pkt_ip_hdr.dst_addr);
 		//print_ether_addr("eth_addr lookup", lookup1);
 		rte_ether_addr_copy(lookup1, &eth_hdr->d_addr); // ether_header->d_addr = lookup1
 	}
@@ -486,7 +488,8 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	
 	clock_gettime(CLOCK_REALTIME, &ts3);
 	sleep_ts1=ts3;
-	realnanosleep(500*1000*1000, &sleep_ts1, &sleep_ts2); // 100 ms
+	//realnanosleep(500*1000*1000, &sleep_ts1, &sleep_ts2); // 500 ms
+	realnanosleep(5*1000, &sleep_ts1, &sleep_ts2); // 5 us
 }
 
 static void

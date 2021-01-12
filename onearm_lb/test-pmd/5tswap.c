@@ -329,9 +329,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			#ifdef REDIRECT_ENABLED
 			h.byte += mb->l4_len; // move the pointer!
 			uint8_t msgtype = h.alt->msgtype_flags;
-			//#ifdef REDIRECT_DEBUG_PRINT
+			#ifdef REDIRECT_DEBUG_PRINT
 			printf("req_id:%" PRIu32 ",msgtype:%" PRIu8 "\n", h.alt->request_id, msgtype);
-			//#endif
+			#endif
 			if(msgtype == SINGLE_PKT_REQ){
 				//the default destination of the request? -> alt_dst_ip
 				// set up the key for (service_id, ip) -> load lookups
@@ -562,7 +562,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				if(ret>=0){
 					uint64_t* ptr = (uint64_t*) lookup_result;
 					*ptr = *ptr + 1;
+					#ifdef REDIRECT_DEBUG_PRINT
 					printf("load++:%" PRIu64 "\n", *ptr);
+					#endif
 				}
 				else{
 					printf("no dest ip found in ip2load table\n");
@@ -629,7 +631,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 						uint64_t* ptr = (uint64_t*) lookup_result;
 						if(*ptr > 0){
 							*ptr = *ptr - 1;
+							#ifdef REDIRECT_DEBUG_PRINT
 							printf("load--:%" PRIu64 "\n", *ptr);
+							#endif
 						}
 					}
 				}
