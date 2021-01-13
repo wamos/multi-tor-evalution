@@ -14,12 +14,16 @@ fi
 
 PATH=$PATH:$HOME/.local/bin:$HOME/bin:/usr/sbin
 export PATH
+
+LD_LIBRARY_PATH=/usr/local/lib
+export LD_LIBRARY_PATH
+
 #which lspci
 #cd efs
 cd efs/multi-tor-evalution/
 sh dpdk_client_config.sh
 sh dpdk_setup_aws.sh
-
-#cd onearm_lb/test-pmd-clean-state/
-#sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly > 5us_pass.log &
+cd onearm_lb/test-pmd-clean-state/
+#TODO rate as a variable to feed into ./build/app/testpmd
+sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly > 5us_pass.log
 

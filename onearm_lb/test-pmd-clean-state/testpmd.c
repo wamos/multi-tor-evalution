@@ -3984,8 +3984,10 @@ main(int argc, char** argv)
 			}
 		}
 
-		printf("Press enter to exit\n");
-		rc = read(0, &c, 1);
+		//printf("Press enter to exit\n");
+		while(1){			
+		}
+		//rc = read(0, &c, 1);
 		pmd_test_exit();
 		if (rc < 0)
 			return 1;

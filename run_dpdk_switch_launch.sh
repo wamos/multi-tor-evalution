@@ -14,10 +14,16 @@ fi
 
 PATH=$PATH:$HOME/.local/bin:$HOME/bin:/usr/sbin
 export PATH
-which lspci
+
+LD_LIBRARY_PATH=/usr/local/lib
+export LD_LIBRARY_PATH
+
+#which lspci
+
 cd efs/multi-tor-evalution
 sh dpdk_switch_config.sh
 sh dpdk_setup_aws.sh
-#cd onearm_lb/test-pmd-clean-state/
-#sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly > 5us_pass.log &
-
+cd onearm_lb/test-pmd/
+echo "run DPDK switch"
+#sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly
+sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap

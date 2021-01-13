@@ -1,3 +1,5 @@
+LAUNCH_OR_KILL=$1
+
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -7,8 +9,12 @@ switch_ip_list=(172.31.33.204  #dpdk-switch-0 eth0
 
 for i in "${switch_ip_list[@]}"
 do
-	echo "setup dpdk env onto" ${i}	
-	ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_switch_config.sh
+	echo ${LAUNCH_OR_KILL} " dpdk switch on " ${i}
+	if [[ "$LAUNCH_OR_KILL" == "launch" ]]; then
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_switch_launch.sh 2>&1 &
+	else
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_kill.sh 2>&1 &
+	fi
 done
 
 echo "ssh commands:"
