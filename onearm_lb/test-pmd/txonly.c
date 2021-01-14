@@ -247,15 +247,28 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	uint32_t index = 0;
 	const void *next_key;
 	void *next_data;
+	void* lookup_result;
+	uint64_t* ptr;
 	while (rte_hash_iterate(fs->ip2load_table, &next_key, &next_data, &iter) >= 0) {
 		struct table_key* ip_service_pair = (struct table_key*) (uintptr_t) next_key;
-		uint64_t* load_value = (uint64_t*) (uintptr_t) next_data;
+		//print_ipaddr("rte_hash_iterate1, ip_dst", ip_service_pair->ip_dst);
+		int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) ip_service_pair, &lookup_result);
+		if(ret>=0){
+			ptr = (uint64_t*) lookup_result;
+			//printf("rte_hash_lookup_data. load:%" PRIu64 "\n", *ptr);
+		}
+		else{
+			printf("no dest ip found in ip2load table\n");
+		}
+		//uint16_t* load_value = (uint16_t*) (uintptr_t) next_data;
+		//printf("rte_hash_iterate1, load_value%" PRIu16 "\n", *load_value);
 		for(uint32_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
 			if(ip_service_pair->ip_dst == fs->local_ip_list[host_index]){
 				pkt_alt_hdr.service_id_list[index] = ip_service_pair->service_id;
 				pkt_alt_hdr.host_ip_list[index] = ip_service_pair->ip_dst;
-				//print_ipaddr("rte_hash_iterate, ip_dst", pkt_alt_hdr.host_ip_list[index]);
-				pkt_alt_hdr.host_queue_depth[index] = (uint16_t) *load_value;
+				//print_ipaddr("rte_hash_iterate2, ip_dst", pkt_alt_hdr.host_ip_list[index]);				
+				pkt_alt_hdr.host_queue_depth[index] = (uint16_t) *ptr;
+				//printf("rte_hash_iterate2, load_value%" PRIu16 "\n", pkt_alt_hdr.host_queue_depth[index]);
 				index++;
 				break;
 			}

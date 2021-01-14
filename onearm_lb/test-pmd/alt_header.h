@@ -5,7 +5,7 @@
 
 #define FIRST_FLAG 0x20
 #define LAST_FLAG 0x10
-#define HOST_PER_RACK 2
+#define HOST_PER_RACK 1
 #define NUM_REPLICA 3
 // 30, 2 for echo requests
 #define LOAD_THRESHOLD 10 // 30 requests threshold for echo request

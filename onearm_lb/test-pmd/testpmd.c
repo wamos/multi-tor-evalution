@@ -138,6 +138,11 @@ static struct rte_hash_parameters routing_params = {
     .socket_id = 0,
 };
 
+const char config_prefix[] = "../../config/";
+const char perhost_config_prefix[] = "/tmp/";
+const char file_type[] = ".txt";
+char config_filename[100];
+
 struct table_key* ip2load_keys;
 uint64_t* ip2load_values;
 
@@ -1573,11 +1578,12 @@ init_hashtable(void){
 	char *ip_addr = (char*) malloc(20);
 	char *nexthop_addr = (char*) malloc(20);
 	char *mac_addr = (char*) malloc(50);
-	#ifndef AWS_HASHTABLE
-	FILE* fp = fopen("./ip_service_load_local.txt", "r");
-	#else
-	FILE* fp = fopen("./ip_service_load_aws.txt", "r");
-	#endif
+
+	char* config_name = "ip_service_load_aws" ;
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+	FILE* fp = fopen(config_filename, "r");
+	//FILE* fp = fopen("./ip_service_load_aws.txt", "r");
+	
 	int service, load;
 	int num_entries;
 
@@ -1608,11 +1614,11 @@ init_hashtable(void){
 		//printf("lookup should find %" PRIu64 ", and it finds a value %" PRIu64 "\n", ip2load_values[i], *ptr);
 	}
 
-	#ifndef AWS_HASHTABLE
-	fp = fopen("./ip_mac_local.txt", "r");
-	#else
-	fp = fopen("./ip_mac_aws.txt", "r");
-	#endif
+	config_name = "ip_mac_aws" ;
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+
+	//FILE* fp = fopen("./ip_mac_aws.txt", "r");
+	fp = fopen(config_filename, "r");
 	fscanf(fp, "%d\n", &num_entries);
 	printf("ip_mac: num_entries %d\n", num_entries);
 	for(int i = 0; i < num_entries; i++){
@@ -1648,11 +1654,10 @@ init_hashtable(void){
 		#endif
 	}
 
-	#ifndef AWS_HASHTABLE
-	fp = fopen("./routing_table_local.txt", "r");
-	#else
-	fp = fopen("./routing_table_aws.txt", "r");
-	#endif
+	config_name = "routing_table_aws";
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
+
 	fscanf(fp, "%d\n", &num_entries);
 	printf("routing table: num_entries %d\n", num_entries);
 	for(int i = 0; i < num_entries; i++){
@@ -1671,7 +1676,10 @@ init_hashtable(void){
 		//#endif
 	}
 
-	fp = fopen("/tmp/local_ip_list.txt", "r");
+	//fp = fopen("/tmp/local_ip_list.txt", "r");
+	config_name = "local_ip_list"; 
+	snprintf(config_filename, sizeof(perhost_config_prefix) + 30 + sizeof(file_type), "%s%s%s", perhost_config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
 	fscanf(fp, "%d\n", &num_entries);
 	printf("local_ip_list: num_entries %d\n", num_entries);
 	for(int i = 0; i < num_entries; i++){
@@ -1704,18 +1712,20 @@ init_hashtable(void){
 		print_ipddr("tor_addr:", *tor_addr);
 	}
 	
-	fp = fopen("/tmp/switch_self_ip.txt", "r");
+	//fp = fopen("/tmp/switch_self_ip.txt", "r");
+	config_name = "switch_self_ip";
+	snprintf(config_filename, sizeof(perhost_config_prefix) + 30 + sizeof(file_type), "%s%s%s", perhost_config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");
 	fscanf(fp, "%s\n", ip_addr);
 	switch_self_ip = inet_addr(ip_addr);
 	//#ifdef REDIRECT_DEBUG_PRINT
 	print_ipddr("ipv4_addr switch_self_ip:", switch_self_ip);
 	//#endif
 
-	#ifndef AWS_HASHTABLE
-	fp = fopen("./switch_ip_list_local.txt", "r");
-	#else
-	fp = fopen("./switch_ip_list_aws.txt", "r");
-	#endif
+	//fp = fopen("./switch_ip_list_aws.txt", "r");
+	config_name = "switch_ip_list_aws";
+	snprintf(config_filename, sizeof(config_prefix) + 30 + sizeof(file_type), "%s%s%s", config_prefix, config_name, file_type);
+	fp = fopen(config_filename, "r");	
 	fscanf(fp, "%d\n", &num_entries);
 	switch_ip_list_length = (uint16_t)(num_entries - 1); // excluding the swtich itself
 	printf("switch_ip_list: num_entries %d\n", num_entries);
