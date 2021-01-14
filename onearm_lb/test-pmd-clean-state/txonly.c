@@ -76,6 +76,7 @@ uint16_t tx_udp_src_port = 7000;
 uint16_t tx_udp_dst_port = 7000;
 uint16_t port_base = 7000;
 uint16_t port_diff = 0;
+uint64_t poisson_array_index = 0;
 
 static inline void
 update_checksum(struct rte_ipv4_hdr *ipv4_hdr, struct rte_udp_hdr *udp_hdr){
@@ -440,6 +441,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		}
 	}
 	fs->tx_packets += nb_tx;
+	//printf("fs->tx_packets%" PRIu64 "\n", fs->tx_packets);
 
 	if (unlikely(nb_tx < nb_pkt)) {
 		if (verbose_level > 0 && fs->fwd_dropped == 0)
@@ -488,8 +490,10 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	
 	clock_gettime(CLOCK_REALTIME, &ts3);
 	sleep_ts1=ts3;
+	uint64_t sleep_time_us = poisson_arrival[poisson_array_index];
+	poisson_array_index = (poisson_array_index + 1)%POISSON_ARRIVAL_ARRAY_SIZE;
 	//realnanosleep(500*1000*1000, &sleep_ts1, &sleep_ts2); // 500 ms
-	realnanosleep(5*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	realnanosleep(sleep_time_us*1000, &sleep_ts1, &sleep_ts2); // 5 us
 }
 
 static void

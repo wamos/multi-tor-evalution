@@ -632,6 +632,7 @@ launch_args_parse(int argc, char** argv)
 		{ "forward-mode",               1, 0, 0 },
 		{ "rss-ip",			0, 0, 0 },
 		{ "rss-udp",			0, 0, 0 },
+		{ "lambda_rate",	1, 0, 0 }, //ST: our dpdk-client adjust lambda_rate using this option!
 		{ "rxq",			1, 0, 0 },
 		{ "txq",			1, 0, 0 },
 		{ "rxd",			1, 0, 0 },
@@ -1051,6 +1052,18 @@ launch_args_parse(int argc, char** argv)
 				rss_hf = ETH_RSS_IP;
 			if (!strcmp(lgopts[opt_idx].name, "rss-udp"))
 				rss_hf = ETH_RSS_UDP;
+
+			// ST: we pass lambda_rate config here and parse it into lambda_rate variable
+			// defined in testpmd.h:433
+			if (!strcmp(lgopts[opt_idx].name, "lambda_rate")) {
+				n = atoi(optarg);
+				if (n > 0)
+					lambda_rate = (double) n;
+				else
+					rte_exit(EXIT_FAILURE, "invalid lambda_rate %d"
+						  "for dpdk-client\n", n);
+			}
+
 			if (!strcmp(lgopts[opt_idx].name, "rxq")) {
 				n = atoi(optarg);
 				if (n >= 0 && check_nb_rxq((queueid_t)n) == 0)

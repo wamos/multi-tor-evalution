@@ -132,7 +132,8 @@ struct rte_hash* ip2mac_table;   // <- ip_mac*.txt
 struct rte_hash* routing_table;  // <- dest->next-hop
 struct alt_header client_alt_header;
 uint32_t client_self_ip;
-double* poisson_arrival;
+uint64_t* poisson_arrival = NULL;
+double lambda_rate=50000.0;// 50k RPS by default
 
 uint16_t verbose_level = 0; /**< Silent by default. */
 int testpmd_logtype; /**< Log type for testpmd logs */
@@ -1487,17 +1488,17 @@ init_hashtable(void){
 		rte_panic("malloc failure\n");
 	}
 
-	poisson_arrival = rte_zmalloc("poisson_arrival", sizeof(double) * POISSON_ARRIVAL_ARRAY_SIZE, 0);
+	poisson_arrival = rte_zmalloc("poisson_arrival", sizeof(uint64_t) * POISSON_ARRIVAL_ARRAY_SIZE, 0);
 	if(poisson_arrival == NULL){
 		rte_panic("malloc failure\n");
 	}
 
-	double rate = 2000.0;
-	GenPoissonArrival(rate, 100, poisson_arrival);
-	for(int n = 0; n < 100; n++){  
-        //printf("%" PRIu64 ", %.5lf\n", (uint64_t) round(poisson_arrival[n]), poisson_arrival[n]);
-        printf ("%.5f\n", poisson_arrival[n]*1000000.0);
-    }
+	//ST: shown configured lambda_rate from parameters.c
+	printf("lambda_rate:%lf\n", lambda_rate);
+	GenPoissonArrival(lambda_rate, POISSON_ARRIVAL_ARRAY_SIZE, poisson_arrival);
+	//for(int n = 0; n < 100; n++){
+	//	printf("%" PRIu64 "\n",  poisson_arrival[n]);
+    //}
 	
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);

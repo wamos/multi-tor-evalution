@@ -429,7 +429,8 @@ extern struct rte_fdir_conf fdir_conf;
 #define MAX_SINGLE_THREAD_CONNECTIONS 100
 #define TS_ARRAY_SIZE 65536 // 2^16 the size of timestamp array and poisson_arrival
 #define POISSON_ARRIVAL_ARRAY_SIZE 65536
-extern double* poisson_arrival;
+extern uint64_t* poisson_arrival;
+extern double lambda_rate;
 extern uint16_t tx_pkt_length; /**< Length of TXONLY packet */
 extern uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT]; /**< Seg. lengths */
 extern uint8_t  tx_pkt_nb_segs; /**< Number of segments in TX packets */

@@ -14,7 +14,7 @@ enum {
 };
 
 gsl_rng* setup_gsl_rng(void);
-void GenPoissonArrival(double lambda, uint32_t size, double* poisson_array);
+void GenPoissonArrival(double lambda, uint32_t size, uint64_t* poisson_array);
 
 gsl_rng* setup_gsl_rng(void){
   const gsl_rng_type * T;
@@ -29,14 +29,16 @@ gsl_rng* setup_gsl_rng(void){
   return r;
 }
 
-void GenPoissonArrival(double lambda, uint32_t size, double* poisson_array) {
+//the intervals are rounded and are in microseconds!
+void GenPoissonArrival(double lambda, uint32_t size, uint64_t* poisson_array) {
   // Generate and output exponential random variables
   gsl_rng* rng = setup_gsl_rng();
   double mu = 1.0/lambda;
 
   for (uint32_t i = 0; i < size; i++){
-    poisson_array[i] = gsl_ran_exponential(rng , mu);
-    poisson_array[i] = poisson_array[i]*1000000.0;
+    double interval = gsl_ran_exponential(rng , mu);
+    interval = interval*1000000.0;
+    poisson_array[i] = (uint64_t) round(interval);
     //printf ("%.5f\n", poisson_array[i]*1000000.0);
   }
 
