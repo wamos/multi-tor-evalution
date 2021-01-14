@@ -1,5 +1,6 @@
 #! /bin/bash
 
+line_num=$1
 #config_path=~/multi-tor-evalution/onearm_lb/test-pmd
 #config_path=~/efs/multi-tor-evalution/config
 config_path=./config
@@ -25,11 +26,12 @@ fi
 
 read num_line < ${config_path}/replica_service_ip_aws.txt
 ## 1. get random number
-rand=0
-rand=$(od -An -N1 -i /dev/random)
-rand=$((rand%num_line))
-line_num=$((rand+2))
-#echo $line_num
+#rand=0
+#rand=$(od -An -N1 -i /dev/random)
+#rand=$((rand%num_line))
+#line_num=$((rand+2))
+## 1. use fixed line num for each client
+line_num=$((line_num+2)) # make it start with 1 and skip the first line so we add 2 to it
 
 ## 2. print random-th line to replica_addr_list.txt
 sed -n ${line_num}p ${config_path}/replica_service_ip_aws.txt  > /tmp/replica_addr_list.txt

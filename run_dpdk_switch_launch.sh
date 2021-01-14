@@ -1,3 +1,5 @@
+FWD_MODE=$1
+NUM=$2
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -24,6 +26,14 @@ cd efs/multi-tor-evalution
 sh dpdk_switch_config.sh
 sh dpdk_setup_aws.sh
 cd onearm_lb/test-pmd/
-echo "run DPDK switch"
-#sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly
-sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap
+if [ -f sw_${NUM}.log ]; then
+    sw_${NUM}.log
+fi
+
+echo "run dpdk-switch-" ${NUM}
+if [[ "$FWD_MODE" == "5tswap" ]]; then
+	sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap > sw_${NUM}.log
+else
+	#sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=replica-select
+	sudo ./build/app/testpmd -l 0-5 -n 4 -- -a --portmask=0x1 --nb-cores=5 --forward-mode=replica-select --enable-info-exchange > sw_${NUM}.log 
+fi

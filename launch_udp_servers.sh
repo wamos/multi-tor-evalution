@@ -1,17 +1,30 @@
 LAUNCH_OR_KILL=$1
+RELAUNCH=$2
 server_ip_list=(172.31.36.20   #replica-select-rack0-udp-server-0
                 172.31.42.171  #replica-select-rack0-udp-server-1
                 172.31.47.248) #replica-select-rack0-udp-server-2
 
+n=0 #server_index
 for i in "${server_ip_list[@]}"
 do
 	echo ${LAUNCH_OR_KILL} "at" ${i}
 	if [[ "$LAUNCH_OR_KILL" == "launch" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_server_launch.sh
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_server_launch.sh ${n} 2>&1 &
+	elif [[ "$LAUNCH_OR_KILL" == "check" ]]; then
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_server_check.sh ${n} 2>&1 &
+		sleep 1
 	else
-    		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_server_kill.sh
+    	ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_server_kill.sh 2>&1 &
 	fi
+	n=$((n+1))
 done
+
+echo "ssh commands:"
+for i in "${server_ip_list[@]}"
+do
+     	echo "ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@"${i} 
+done
+echo ""
 
 ### run_server_launch.sh
 #cd efs/kvstore_testbed/multithread/build/
