@@ -40,7 +40,7 @@ if [[ "$USER" == "ec2-user" ]]; then
 		sh dpdk_client_config.sh ${line_num}
 		sh dpdk_setup_aws.sh
 		cd onearm_lb/test-pmd-clean-state/
-		sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=50000 > 50k_${line_num}.log
+		sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=30000 > 30k_${line_num}.log
 	fi
 	echo "------------------------"
 else
@@ -50,5 +50,6 @@ else
     cat /tmp/client_self_ip.txt
     echo "replica_addr_list.txt"
     cat /tmp/replica_addr_list.txt
+	ps aux | grep testpmd
 	echo "------------------------"
 fi
