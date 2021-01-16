@@ -27,7 +27,7 @@ sh dpdk_switch_config.sh
 sh dpdk_setup_aws.sh
 cd onearm_lb/test-pmd/
 if [ -f sw_${NUM}.log ]; then
-    sw_${NUM}.log
+    rm sw_${NUM}.log
 fi
 
 echo "run dpdk-switch-" ${NUM}

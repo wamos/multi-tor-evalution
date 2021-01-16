@@ -25,8 +25,8 @@ cd efs/multi-tor-evalution/
 sh dpdk_client_config.sh ${line_num}
 sh dpdk_setup_aws.sh
 cd onearm_lb/test-pmd-clean-state/
-if [ -f 30k_${line_num}.log ]; then
-    rm 30k_${line_num}.log
+if [ -f dpdk_${line_num}.log ]; then
+    rm dpdk_${line_num}.log
 fi
-sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=30000 > 30k_${line_num}.log
+sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=12500> dpdk_${line_num}.log
 
