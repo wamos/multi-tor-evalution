@@ -325,7 +325,10 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	//update_checksum(&pkt_ip_hdr, &pkt_udp_hdr);
 
 	//alt_header setup
-	pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ_PASSTHROUGH;
+	//pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ_PASSTHROUGH;
+
+	//enable open-loop request to be redirect-able
+	pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ;
 	pkt_req_hdr.redirection = 0;
 	pkt_req_hdr.header_size = sizeof(struct alt_header);
 
@@ -333,7 +336,9 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	pkt_req_hdr.service_id = fs->client_alt_header.service_id;
 	pkt_req_hdr.request_id = (pkt_req_hdr.request_id + 1)%TS_ARRAY_SIZE;
 
-	pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;	
+	//random default destination
+	pkt_req_hdr.alt_dst_ip = fs->client_alt_header.replica_dst_list[pkt_req_hdr.request_id%NUM_REPLICA];
+	//pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;	
 	pkt_req_hdr.actual_src_ip = fs->client_alt_header.actual_src_ip;
 	for(int i = 0; i < NUM_REPLICA; i++){
 		pkt_req_hdr.replica_dst_list[i] = fs->client_alt_header.replica_dst_list[i];
@@ -471,8 +476,9 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		uint32_t req_id = recv_req_ptr->request_id;	
 		req_id = req_id%TS_ARRAY_SIZE;
 		ts_array[req_id].rx_timestamp = ts2;		
-		uint64_t latency = clock_gettime_diff_ns(&ts_array[req_id].rx_timestamp, &ts_array[req_id].tx_timestamp);		
-		printf("req id:%" PRIu32 ", latency:%" PRIu64 "\n", req_id, latency);	
+		uint64_t latency = clock_gettime_diff_ns(&ts_array[req_id].rx_timestamp, &ts_array[req_id].tx_timestamp);
+		//printf("%" PRIu64 "\n", req_id, latency);
+		//printf("req id:%" PRIu32 ", latency:%" PRIu64 "\n", req_id, latency);	
 		// if(ts1.tv_sec == ts2.tv_sec){
 		// 	//fprintf(fp, "%" PRIu64 "\n", ts2.tv_nsec - ts1.tv_nsec);
 		// 	printf("%" PRIu64 "\n", ts_array[req_id].rx_timestamp.tv_nsec - ts_array[req_id].tx_timestamp.tv_nsec);
