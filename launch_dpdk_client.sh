@@ -25,6 +25,8 @@ do
 	elif [[ "$LAUNCH_OR_KILL" == "check" ]]; then
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_client_check.sh ${n} ${i} ${RELAUNCH} 2>&1 &
 		sleep 1
+	elif [[ "$LAUNCH_OR_KILL" == "config" ]]; then
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_client_config.sh ${n} 2>&1 &
 	else
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_kill.sh 2>&1 &
 	fi

@@ -193,6 +193,6 @@ ifdown()
 
 #setup_target
 load_igb_uio_module
-set_non_numa_pages
+#set_non_numa_pages
 ifdown
 bind_devices_to_igb_uio

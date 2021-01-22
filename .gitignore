@@ -1,3 +1,4 @@
+log/
 dpdk_deps/
 onearm_lb/helloworld/
 onearm_lb/l2fwd/

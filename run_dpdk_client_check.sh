@@ -34,13 +34,16 @@ if [[ "$USER" == "ec2-user" ]]; then
 	cat /tmp/client_self_ip.txt 
 	echo "replica_addr_list.txt"
 	cat /tmp/replica_addr_list.txt
+	ifconfig | grep eth1
+	echo "hugepages"
+	cat  /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
 	if [[ "$RELAUNCH" == "relaunch" ]]; then
 		sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
 		cd efs/multi-tor-evalution
 		sh dpdk_client_config.sh ${line_num}
 		sh dpdk_setup_aws.sh
 		cd onearm_lb/test-pmd-clean-state/
-		sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=12500 > dpdk_${line_num}.log
+		sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=20000 > dpdk_${line_num}.log
 	fi
 	echo "------------------------"
 else

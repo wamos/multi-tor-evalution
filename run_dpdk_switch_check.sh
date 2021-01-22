@@ -34,11 +34,14 @@ if [[ "$USER" == "ec2-user" ]]; then
 	cat /tmp/switch_self_ip.txt
 	echo "local_ip_list.txt"
 	cat /tmp/local_ip_list.txt
+	ifconfig | grep eth1
+	echo "hugepages"
+	cat  /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
 	if [[ "$RELAUNCH" == "relaunch" ]]; then
-		sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
+		#sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
 		cd efs/multi-tor-evalution
-		sh dpdk_switch_config.sh
-		sh dpdk_setup_aws.sh
+		#sh dpdk_switch_config.sh
+		#sh dpdk_setup_aws.sh
 		cd onearm_lb/test-pmd/	
 		if [[ "$FWD_MODE" == "5tswap" ]]; then
 			sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap > sw_${NUM}.log
@@ -46,6 +49,11 @@ if [[ "$USER" == "ec2-user" ]]; then
         	#sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=replica-select
 			sudo ./build/app/testpmd -l 0-5 -n 4 -- -a --portmask=0x1 --nb-cores=5 --forward-mode=replica-select --enable-info-exchange > sw_${NUM}.log
 		fi
+	elif [[ "$RELAUNCH" == "reconfig" ]]; then
+		sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
+		cd efs/multi-tor-evalution
+		sh dpdk_switch_config.sh
+		sh dpdk_setup_aws.sh	
 	fi
 else
 	echo "dpdk switch has launched on" ${IP_ADDR} #"with" ${FWD_MODE}
