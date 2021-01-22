@@ -13,8 +13,8 @@ enum {
 	GEN_BIMODAL,
 };
 
-gsl_rng* setup_gsl_rng(void);
-void GenPoissonArrival(double lambda, uint32_t size, uint64_t* poisson_array);
+//gsl_rng* setup_gsl_rng(void);
+//void GenPoissonArrival(double lambda, uint32_t size, uint64_t* poisson_array);
 
 gsl_rng* setup_gsl_rng(void){
   const gsl_rng_type * T;

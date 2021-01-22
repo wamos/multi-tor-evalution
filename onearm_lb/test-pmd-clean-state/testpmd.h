@@ -431,6 +431,12 @@ extern struct rte_fdir_conf fdir_conf;
 #define POISSON_ARRIVAL_ARRAY_SIZE 65536
 extern uint64_t* poisson_arrival;
 extern double lambda_rate;
+extern int replica_select_enabled;
+extern int random_dest_enabled;
+extern FILE* logfp;
+extern uint64_t* latency_samples;
+extern uint8_t* redirection_samples;
+extern uint32_t latency_array_index;
 extern uint16_t tx_pkt_length; /**< Length of TXONLY packet */
 extern uint16_t tx_pkt_seg_lengths[RTE_MAX_SEGS_PER_PKT]; /**< Seg. lengths */
 extern uint8_t  tx_pkt_nb_segs; /**< Number of segments in TX packets */

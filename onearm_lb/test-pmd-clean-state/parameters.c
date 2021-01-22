@@ -564,6 +564,22 @@ parse_event_printing_config(const char *optarg, int enable)
 	return 0;
 }
 
+//ST: parse file name and open a log file with an experiment's perfix name and rate!
+int parse_latency_logfile(const char *expname){
+	const char log_prefix[] = "../../log/";
+	const char log[] = ".log";
+	char logfilename[100];
+	char rate_str[12];
+	int rate = (int) lambda_rate/1000;
+	sprintf(rate_str, "_%dk", rate);
+    snprintf(logfilename, sizeof(rate_str) + sizeof(log_prefix) + sizeof(log) + 30, "%s%s%s%s", log_prefix, expname, rate_str, log);
+    logfp= fopen(logfilename, "w+");
+    if(logfp == NULL){
+       return -1;
+    }
+	return 0;
+}
+
 void
 launch_args_parse(int argc, char** argv)
 {
@@ -632,6 +648,9 @@ launch_args_parse(int argc, char** argv)
 		{ "forward-mode",               1, 0, 0 },
 		{ "rss-ip",			0, 0, 0 },
 		{ "rss-udp",			0, 0, 0 },
+		{ "latency-logfile",         1, 0, 0}, // ST: put our options here
+		{ "enable-random-dest",      0, 0, 0}, // ST: put our options here
+		{ "enable-replica-select",   0, 0, 0}, // ST: put our options here
 		{ "lambda_rate",	1, 0, 0 }, //ST: our dpdk-client adjust lambda_rate using this option!
 		{ "rxq",			1, 0, 0 },
 		{ "txq",			1, 0, 0 },
@@ -1063,6 +1082,19 @@ launch_args_parse(int argc, char** argv)
 					rte_exit(EXIT_FAILURE, "invalid lambda_rate %d"
 						  "for dpdk-client\n", n);
 			}
+
+			//ST: our own option: enable-random-dest
+			if (!strcmp(lgopts[opt_idx].name, "enable-random-dest"))
+				random_dest_enabled = 1;
+
+			//ST: our own option: enable-replica-select
+			if (!strcmp(lgopts[opt_idx].name, "enable-replica-select"))
+				replica_select_enabled = 1;
+
+			if (!strcmp(lgopts[opt_idx].name, "latency-logfile"))
+				if (parse_latency_logfile(optarg))
+					rte_exit(EXIT_FAILURE,
+					   "latency-logfile parsing failed\n");
 
 			if (!strcmp(lgopts[opt_idx].name, "rxq")) {
 				n = atoi(optarg);

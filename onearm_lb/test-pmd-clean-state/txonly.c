@@ -44,7 +44,6 @@
 #include <rte_hash_crc.h>
 
 #include "testpmd.h"
-#include "rand_dist.h"
 #include "../test-pmd/nanosleep.h"
 #include "../test-pmd/alt_header.h"
 
@@ -320,25 +319,21 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	//UDP port increment for each requesets
 	pkt_udp_hdr.src_port = rte_cpu_to_be_16(port_base + port_diff);
 	pkt_udp_hdr.dst_port = rte_cpu_to_be_16(port_base + port_diff);
-	port_diff = (port_diff + 1)%MAX_SINGLE_THREAD_CONNECTIONS;
+	//[TESTING] disable port spreading to keep sockets hot
+	//port_diff = (port_diff + 1)%MAX_SINGLE_THREAD_CONNECTIONS;
 
 	//update_checksum(&pkt_ip_hdr, &pkt_udp_hdr);
-
-	//alt_header setup
-	//pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ_PASSTHROUGH;
-
-	//enable open-loop request to be redirect-able
-	pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ;
-	pkt_req_hdr.redirection = 0;
-	pkt_req_hdr.header_size = sizeof(struct alt_header);
-
-	pkt_req_hdr.feedback_options = 0;
 	pkt_req_hdr.service_id = fs->client_alt_header.service_id;
-	pkt_req_hdr.request_id = (pkt_req_hdr.request_id + 1)%TS_ARRAY_SIZE;
+	pkt_req_hdr.request_id = pkt_req_hdr.request_id + 1;//%TS_ARRAY_SIZE;
 
 	//random default destination
-	pkt_req_hdr.alt_dst_ip = fs->client_alt_header.replica_dst_list[pkt_req_hdr.request_id%NUM_REPLICA];
-	//pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;	
+	if(random_dest_enabled){
+		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.replica_dst_list[rand()%NUM_REPLICA];
+	}
+	else{//default setup
+		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;
+	}
+
 	pkt_req_hdr.actual_src_ip = fs->client_alt_header.actual_src_ip;
 	for(int i = 0; i < NUM_REPLICA; i++){
 		pkt_req_hdr.replica_dst_list[i] = fs->client_alt_header.replica_dst_list[i];
@@ -431,7 +426,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		return;
 	
 	clock_gettime(CLOCK_REALTIME, &ts1);
-	ts_array[pkt_req_hdr.request_id].tx_timestamp = ts1;
+	ts_array[pkt_req_hdr.request_id%TS_ARRAY_SIZE].tx_timestamp = ts1;
 	nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, 1);
 
 	/*
@@ -474,9 +469,14 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		struct alt_header* recv_req_ptr = rte_pktmbuf_mtod_offset(recv_burst[i], struct alt_header *, 
 			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr));
 		uint32_t req_id = recv_req_ptr->request_id;	
-		req_id = req_id%TS_ARRAY_SIZE;
-		ts_array[req_id].rx_timestamp = ts2;		
-		uint64_t latency = clock_gettime_diff_ns(&ts_array[req_id].rx_timestamp, &ts_array[req_id].tx_timestamp);
+		uint8_t redirection = recv_req_ptr->redirection;
+		uint32_t req_index = req_id%TS_ARRAY_SIZE;
+		
+		ts_array[req_index].rx_timestamp = ts2;		
+		latency_samples[req_id] = clock_gettime_diff_ns(&ts_array[req_index].rx_timestamp, &ts_array[req_index].tx_timestamp);
+		redirection_samples[req_id] = redirection;
+		latency_array_index++;
+
 		//printf("%" PRIu64 "\n", req_id, latency);
 		//printf("req id:%" PRIu32 ", latency:%" PRIu64 "\n", req_id, latency);	
 		// if(ts1.tv_sec == ts2.tv_sec){
@@ -523,13 +523,27 @@ tx_only_begin(portid_t pi)
 	// print_ether_addr("ETH_DST_ADDR:", &eth_hdr.d_addr);
 
 	//set up ether src and dst address
-	eth_hdr.ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
+	eth_hdr.ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);	
 
 	// printf("pkt_data_len:%" PRIu16 "\n", pkt_data_len);
 	// pkt_req_hdr.request_id = 0;
 	// //for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
 	// 	pkt_req_hdr.replica_dst_list[host_index];
 	// //}
+
+	//enable open-loop request to be redirect-able
+	if(replica_select_enabled){
+		pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ;
+	}
+	//default setup
+	else{
+		pkt_req_hdr.msgtype_flags = SINGLE_PKT_REQ_PASSTHROUGH;
+	}
+	
+	pkt_req_hdr.redirection = 0;
+	pkt_req_hdr.header_size = sizeof(struct alt_header);
+
+	pkt_req_hdr.feedback_options = 0;
 	
 }
 

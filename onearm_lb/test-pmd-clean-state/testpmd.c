@@ -71,6 +71,7 @@
 #include <rte_hash_crc.h>
 
 #include "testpmd.h"
+#include "rand_dist.h"
 
 #ifndef MAP_HUGETLB
 /* FreeBSD may not have MAP_HUGETLB (in fact, it probably doesn't) */
@@ -133,7 +134,15 @@ struct rte_hash* routing_table;  // <- dest->next-hop
 struct alt_header client_alt_header;
 uint32_t client_self_ip;
 uint64_t* poisson_arrival = NULL;
+//ST: our log file pointer is here!
+FILE* logfp = NULL;
+uint64_t* latency_samples = NULL;
+uint8_t* redirection_samples = NULL;
+uint32_t latency_array_size=1;
+uint32_t latency_array_index = 0;
 double lambda_rate=50000.0;// 50k RPS by default
+int replica_select_enabled = 0;
+int random_dest_enabled = 0;
 
 uint16_t verbose_level = 0; /**< Silent by default. */
 int testpmd_logtype; /**< Log type for testpmd logs */
@@ -1493,12 +1502,16 @@ init_hashtable(void){
 		rte_panic("malloc failure\n");
 	}
 
+	latency_array_size= (uint32_t) lambda_rate*600; // sufficent for a 10-min experiment
+	latency_samples = rte_zmalloc("latency_samples", sizeof(uint64_t) * latency_array_size, 0);
+	redirection_samples = rte_zmalloc("redirection_samples", sizeof(uint8_t) * latency_array_size, 0);
+
 	//ST: shown configured lambda_rate from parameters.c
 	printf("lambda_rate:%lf\n", lambda_rate);
 	GenPoissonArrival(lambda_rate, POISSON_ARRIVAL_ARRAY_SIZE, poisson_arrival);
-	//for(int n = 0; n < 100; n++){
-	//	printf("%" PRIu64 "\n",  poisson_arrival[n]);
-    //}
+	for(int n = 0; n < 100; n++){
+		printf("%" PRIu64 "\n",  poisson_arrival[n]);
+    }
 	
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
@@ -3186,6 +3199,16 @@ pmd_test_exit(void)
 
         rte_hash_free(ip2mac_table);
         rte_hash_free(routing_table);
+		
+		printf("Dump latency samples\n");
+		//[UNTESTED] dump all latency samples to the logfp
+		//drop the first record. It may be corrupted by random packets received accidently 
+		for(uint32_t index = 1; index < latency_array_index; index++){
+			fprintf(logfp, "%" PRIu8 ",%" PRIu64 "\n", redirection_samples[index], latency_samples[index]);
+		}
+		fclose(logfp);
+		rte_free(latency_samples);
+		rte_free(redirection_samples);
 
 	printf("\nBye...\n");
 }
