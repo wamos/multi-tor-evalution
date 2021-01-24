@@ -6,8 +6,8 @@ export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
 client_ip_list=(172.31.46.203  #rackclient-dpdk-client-0-eth0
-		172.31.33.152  #rackclient-dpdk-client-1-eth0
-		172.31.40.245) #rackclient-dpdk-client-2-eth0
+		172.31.33.97  #rackclient-dpdk-client-1-eth0
+		172.31.40.126) #rackclient-dpdk-client-2-eth0
 
 echo "ssh commands:"
 for i in "${client_ip_list[@]}"
