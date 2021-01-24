@@ -22,7 +22,7 @@
 
 //ST: for packet/request redirection
 #define REDIRECT_ENABLED 1
-#define THRESHOLD_REDIRECT 0
+#define THRESHOLD_REDIRECT 1
 //#define REDIRECT_DEBUG_PRINT 1
 //[load++,load--] tags mark the code sections where we use switch-based counters to record load
 
@@ -334,7 +334,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			continue;
 		}
 
-		uint64_t load1 = 0;
+		uint64_t local_load = 0;
 		int ret;
 		void* mac_lookup_result;
 		if (next_proto == IPPROTO_UDP) {
@@ -351,20 +351,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			printf("req_id:%" PRIu32 ",msgtype:%" PRIu8 "\n", h.alt->request_id, msgtype);
 			#endif
 			if(msgtype == SINGLE_PKT_REQ){
-				//the default destination of the request? -> alt_dst_ip
-				// set up the key for (service_id, ip) -> load lookups
-				//ip_service_key.service_id = h.alt->service_id;
-				//ip_service_key.ip_dst = h.alt->alt_dst_ip;
-
-				// lookups for (service_id, ip) -> load
-				// -> we set missing values to UINT64_MAX, so it's unlikely they'll get selected.
-				// int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
-				// uint64_t* ptr = (uint64_t*) lookup_result;
-				// if(ret >= 0)
-				// 	load1 = *ptr; 
-				// else
-				// 	load1 = UINT64_MAX;
-
+				
 				//there's piggyback load info attached. parse all of them!
 				// if(h.alt->redirection > 0){ 
 				// 	uint64_t load;
@@ -421,71 +408,100 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				}
 				//printf("redirection:%" PRIu8 "\n", h.alt->redirection);
 
-				// #if THRESHOLD_REDIRECT==1
-				// if(load1 < LOAD_THRESHOLD || h.alt->redirection > REDIRECT_BOUND){
-				// 	//printf("no redirection, request goes to default dest!\n");
-				// 	#ifdef REDIRECT_DEBUG_PRINT
-				// 	printf("no redirection, request goes to default dest!\n");
-				// 	if(h.alt->redirection > REDIRECT_BOUND){
-				// 		print_ipaddr("edirection bound reached, alt_dst_ip:", h.alt->alt_dst_ip);
-				// 	}
-				// 	#endif
-				// 	//no redirection, the load of default destination is less than the threshold
-				// 	ipv4_header->dst_addr = h.alt->alt_dst_ip;
 
-				// 	//[load++,load--] increment ip2load table's load for ipv4_header->dst_addr
-				// 	ip_service_key.service_id = h.alt->service_id;
-				// 	ip_service_key.ip_dst = ipv4_header->dst_addr;
-				// 	//print_ipaddr("dst_ipaddr", ipv4_header->dst_addr);
-				// 	int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
-				// 	if(ret >= 0){
-				// 		uint64_t* ptr = (uint64_t*) lookup_result;
-				// 		*ptr = *ptr + 1;
-				// 		printf("load++:%" PRIu64 "\n", *ptr);
-				// 	}
-				// }
-				// else{ // load1 >= LOAD_THRESHOLD && h.alt->redirection < REDIRECT_BOUND
-				// #endif
-
-				// #ifdef REDIRECT_DEBUG_PRINT
-				// printf("redirection,load:%" PRIu64 "\n", load1);
-				// #endif
+				//#if THRESHOLD_REDIRECT==1
+				// the default destination of the request? -> alt_dst_ip
+				// set up the key for (service_id, ip) -> load lookups
+				ip_service_key.service_id = h.alt->service_id;
+				ip_service_key.ip_dst = h.alt->alt_dst_ip;				
+				// lookups for (service_id, ip) -> load
+				// -> we set missing values to UINT64_MAX, so it's unlikely they'll get selected.
+				int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
+				uint64_t* ptr = (uint64_t*) lookup_result;
+				if(ret >= 0)
+					local_load = *ptr; 
+				else
+					local_load = UINT64_MAX;
+				//#endif
 
 				//redirect requests to the min load replica
-				uint64_t min_load = UINT64_MAX;	
+				uint64_t remote_min_load = UINT64_MAX;	
 				uint64_t current_load;
 				uint16_t min_index;
 				for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
 					ip_service_key.ip_dst = h.alt->replica_dst_list[host_index];
 					ip_service_key.service_id = h.alt->service_id;
+
+					// we don't compare with ourselves if 
+					if(ip_service_key.ip_dst == h.alt->alt_dst_ip)
+						continue;
+
 					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
 					uint64_t* ptr = (uint64_t*) lookup_result;
 
 					//print_ip2load(ip_service_key.ip_dst, *ptr);
-					//printf("min load:%" PRIu64 "\n", min_load);
+					//printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 
 					if(ret >= 0)
 						current_load = *ptr; 
 					else
 						current_load = UINT64_MAX;
 
-					if(current_load < min_load){
-						min_index = host_index;
-						min_load = current_load;
+					if(current_load < remote_min_load){
+						remote_min_load = host_index;
+						remote_min_load = current_load;
 					}									
 
 					#ifdef REDIRECT_DEBUG_PRINT					
 					print_ipaddr("ip_service_key.ip_dst", ip_service_key.ip_dst);
 					printf("load:%" PRIu64 "\n", *ptr);
-					printf("min load:%" PRIu64 "\n", min_load);
+					printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 					#endif
 				}
-
 				uint32_t dest_addr = h.alt->replica_dst_list[min_index];
+
+				// printf("local_load:");
+				// print_ip2load(h.alt->alt_dst_ip, local_load);
+				// printf("remote_min_load:");
+				// print_ip2load(dest_addr, remote_min_load);
+
+				//#if THRESHOLD_REDIRECT==1
+				//if( local queue depth (i.e. default destination's queue depth)  <= remote minimal queue depth + delta || redirection > 1 )
+				if(remote_min_load + LOAD_DELTA >= local_load || h.alt->redirection >= REDIRECT_BOUND){
+				//MIN: if(local_load < LOAD_THRESHOLD || h.alt->redirection > REDIRECT_BOUND){
+					//#ifdef REDIRECT_DEBUG_PRINT
+					//printf("no redirection, request goes to default dest!\n");
+					// if(h.alt->redirection > REDIRECT_BOUND){
+					// 	print_ipaddr("redirection bound reached, alt_dst_ip:", h.alt->alt_dst_ip);
+					// }
+					//#endif
+					//no redirection, the load of default destination is less than the threshold
+					ipv4_header->dst_addr = h.alt->alt_dst_ip;
+
+					//[load++,load--] increment ip2load table's load for ipv4_header->dst_addr
+					ip_service_key.service_id = h.alt->service_id;
+					ip_service_key.ip_dst = ipv4_header->dst_addr;
+					//print_ipaddr("dst_ipaddr", ipv4_header->dst_addr);
+					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
+					if(ret >= 0){
+						uint64_t* ptr = (uint64_t*) lookup_result;
+						*ptr = *ptr + 1;
+						//printf("load++:%" PRIu64 "\n", *ptr);
+					}
+				}
+				else{ //remote_min_load + LOAD_DELTA < local_load  && h.alt->redirection < REDIRECT_BOUND
+				//MIN: local_load >= LOAD_THRESHOLD && h.alt->redirection < REDIRECT_BOUND
+				//#endif
+
+				// #ifdef REDIRECT_DEBUG_PRINT
+				//printf("redirection, local_load:%" PRIu64 "\n", local_load);
+				//printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
+				// #endif
+
 				if(h.alt->alt_dst_ip != dest_addr){
-					//printf("redirection:%" PRIu8 "\n", h.alt->redirection);
+					//printf("redirection counter:%" PRIu8 "\n", h.alt->redirection);
 					//printf("redirected_to:");
-					//print_ip2load(dest_addr, min_load);
+					//print_ip2load(dest_addr, remote_min_load);
 				}
 				else{
 					ipv4_header->dst_addr = h.alt->alt_dst_ip;
@@ -522,7 +538,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				//print_ipaddr("min ip_addr:", h.alt->replica_dst_list[min_index]);
 				print_ipaddr("next-hop addr:", ipv4_header->dst_addr);
 				print_ipaddr("min ip_addr:", h.alt->replica_dst_list[min_index]);
-				printf("min load:%" PRIu64 "\n", min_load);
+				printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 				#endif
 
 				//attach load info based on local_ip_list to the header
@@ -552,9 +568,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				// }
 				h.alt->redirection+=1;
 
-				// #if THRESHOLD_REDIRECT==1
-				// }
-				// #endif
+				//#if THRESHOLD_REDIRECT==1
+				}
+				//#endif
 
 				//print_ipaddr("dst_ipaddr", ipv4_header->dst_addr);
 				// look up dst mac addr for our ip dest addr				

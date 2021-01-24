@@ -451,7 +451,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	sleep_ts1=ts1;
-	realnanosleep(200*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	realnanosleep(100*1000, &sleep_ts1, &sleep_ts2); // 5 us
 
 	// struct rte_eth_burst_mode mode;
 	// rte_eth_rx_burst_mode_get(fs->rx_port, fs->rx_queue, &mode);

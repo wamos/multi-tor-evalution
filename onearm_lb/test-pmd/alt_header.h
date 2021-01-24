@@ -8,8 +8,9 @@
 #define HOST_PER_RACK 1
 #define NUM_REPLICA 3
 // 30, 2 for echo requests
-#define LOAD_THRESHOLD 30 // 30 requests threshold for echo request
-#define REDIRECT_BOUND 2  // how many times a request can be redirected
+#define LOAD_DELTA 1
+#define LOAD_THRESHOLD 2 // 30 requests threshold for echo request
+#define REDIRECT_BOUND 1  // how many times a request can be redirected
 
 //value -> uint16_t load_level but store with uint64_t format
 struct table_key {
