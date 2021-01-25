@@ -127,6 +127,10 @@ static struct rte_hash_parameters ip2load_params = {
     .hash_func = rte_jhash,
     .hash_func_init_val = 0,
     .socket_id = 0,
+	.extra_flag = RTE_HASH_EXTRA_FLAGS_TRANS_MEM_SUPPORT | 
+					RTE_HASH_EXTRA_FLAGS_RW_CONCURRENCY |
+					RTE_HASH_EXTRA_FLAGS_MULTI_WRITER_ADD, 
+	// see https://doc.dpdk.org/guides/prog_guide/hash_lib.html for further details
 };
 
 static struct rte_hash_parameters routing_params = {
@@ -161,7 +165,17 @@ uint16_t  switch_ip_list_length;
 uint32_t switch_self_ip;
 
 
-//ST: define info_exchange_enabled and replica_selection_enabled here
+//ST: define variable from testpmd.h file here
+FILE* gossip_rx_logfp = NULL;
+FILE* req_qd_logfp = NULL;
+struct gossip_rx_log* gossip_rx_samples = NULL;
+struct req_qd_log* req_qd_samples = NULL;
+uint32_t gossip_rx_array_index = 0;
+uint32_t req_qd_array_index = 0;
+//default setup:
+uint64_t gossip_period = 100;
+uint64_t load_delta = 1;
+
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
 
@@ -1565,7 +1579,19 @@ init_hashtable(void){
 	if(switch_ip_list == NULL){
 		rte_panic("malloc failure\n");	
 	}
-	
+	//uint64_t array_size = gossip_period * 1000 * 1000; // per second size
+	//array_size = array_size*10;
+
+	// gossip_rx_samples = rte_zmalloc("gossip_rx_samples", sizeof(struct gossip_rx_log) * 1500000, 0);
+	// if(gossip_rx_samples == NULL){
+	// 	rte_panic("gossip_rx_log malloc failure\n");
+	// }
+
+	req_qd_samples = rte_zmalloc("req_qd_samples", sizeof(struct req_qd_log) * 1000000, 0);
+	if(req_qd_samples == NULL){
+		rte_panic("req_qd_samples malloc failure\n");
+	}
+
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
 	// * Find a key-value pair in the hash table. This operation is multi-thread safe with regarding to other lookup threads
@@ -3558,6 +3584,30 @@ pmd_test_exit(void)
 	rte_hash_free(ip2mac_table);
 	rte_hash_free(routing_table);
 
+	//ST: TODO: dump logs
+	//printf("Dump gossip_rx_samples\n");
+	//printf("gossip_rx_array_index:%"PRIu32 "\n", gossip_rx_array_index);
+	//drop the first record. It may be corrupted by random packets received accidently 
+	// for(uint32_t index = 1; index < gossip_rx_array_index; index++){
+	// 	fprintf(gossip_rx_logfp, "%" PRIu16 ",%" PRIu64 "\n", 
+	// 		gossip_rx_samples[index].switch_index, gossip_rx_samples[index].inter_rx_interval);	
+	// }
+	//fclose(gossip_rx_logfp);
+	//rte_free(gossip_rx_samples);
+
+	printf("Dump req_qd_samples\n");
+		printf("req_qd_array_index:%"PRIu32 "\n", req_qd_array_index);
+		if(req_qd_array_index >= 1){
+		for(uint32_t index = 1; index < req_qd_array_index; index++){
+			//fprintf(req_qd_logfp, "%" PRIu16 ",%" PRIu16 "\n", 
+				//req_qd_samples[index].local_load, req_qd_samples[index].remote_min_load);
+			fprintf(req_qd_logfp, "%" PRIu16 ",%" PRIu16 ",%" PRIu16 "\n",
+				req_qd_samples[index].local_load, req_qd_samples[index].remote_load_array[0], 
+				req_qd_samples[index].remote_load_array[1]);
+		}
+	}	
+	fclose(req_qd_logfp);	
+	rte_free(req_qd_samples);
 	printf("\nBye...\n");
 }
 

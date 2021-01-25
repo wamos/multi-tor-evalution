@@ -26,6 +26,7 @@
 //#define REDIRECT_DEBUG_PRINT 1
 //[load++,load--] tags mark the code sections where we use switch-based counters to record load
 
+#include "nanosleep.h"
 #include "alt_header.h"
 #include <rte_hash.h>
 #include <rte_fbk_hash.h>
@@ -34,6 +35,14 @@
 
 uint32_t empty_addr = RTE_IPV4(0, 0, 0, 0);
 int udp_counter = 0;
+struct timespec start_ts[] = {
+	[0] = {.tv_nsec = 0, .tv_sec = 0},
+	[1] = {.tv_nsec = 0, .tv_sec = 0},
+};
+struct timespec end_ts[] = {
+	[0] = {.tv_nsec = 0, .tv_sec = 0},
+	[1] = {.tv_nsec = 0, .tv_sec = 0},
+};
 //#ifdef REDIRECT_DEBUG_PRINT
 static inline void
 print_macaddr(const char* string, struct rte_ether_addr *macaddr){
@@ -285,7 +294,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 	/*
 	 * Receive a burst of packets and forward them.
 	 */
-	nb_rx = rte_eth_rx_burst(fs->rx_port, fs->rx_queue, pkts_burst, 32);
+	nb_rx = rte_eth_rx_burst(fs->rx_port, fs->rx_queue, pkts_burst, 4);
 	if (unlikely(nb_rx == 0))
 		return;
 
@@ -424,10 +433,12 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					local_load = UINT64_MAX;
 				//#endif
 
+				req_qd_samples[req_qd_array_index].local_load = local_load;
 				//redirect requests to the min load replica
 				uint64_t remote_min_load = UINT64_MAX;	
 				uint64_t current_load;
-				uint16_t min_index;
+				uint16_t min_index = 0;
+				uint16_t remote_index = 0;
 				for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
 					ip_service_key.ip_dst = h.alt->replica_dst_list[host_index];
 					ip_service_key.service_id = h.alt->service_id;
@@ -438,14 +449,19 @@ pkt_burst_redirection(struct fwd_stream *fs){
 
 					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
 					uint64_t* ptr = (uint64_t*) lookup_result;
-
 					//print_ip2load(ip_service_key.ip_dst, *ptr);
 					//printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 
-					if(ret >= 0)
+					if(ret >= 0){
 						current_load = *ptr; 
-					else
+						req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = *ptr;
+						remote_index++;
+					}
+					else{
 						current_load = UINT64_MAX;
+						req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = UINT64_MAX;
+						remote_index++;
+					}
 
 					if(current_load < remote_min_load){
 						remote_min_load = host_index;
@@ -460,6 +476,10 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				}
 				uint32_t dest_addr = h.alt->replica_dst_list[min_index];
 
+				req_qd_samples[req_qd_array_index].local_load = local_load;
+				//req_qd_samples[req_qd_array_index].remote_min_load = remote_min_load;
+				req_qd_array_index++;
+
 				// printf("local_load:");
 				// print_ip2load(h.alt->alt_dst_ip, local_load);
 				// printf("remote_min_load:");
@@ -467,7 +487,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 
 				//#if THRESHOLD_REDIRECT==1
 				//if( local queue depth (i.e. default destination's queue depth)  <= remote minimal queue depth + delta || redirection > 1 )
-				if(remote_min_load + LOAD_DELTA >= local_load || h.alt->redirection >= REDIRECT_BOUND){
+				if(remote_min_load + load_delta >= local_load || h.alt->redirection >= REDIRECT_BOUND){
 				//MIN: if(local_load < LOAD_THRESHOLD || h.alt->redirection > REDIRECT_BOUND){
 					//#ifdef REDIRECT_DEBUG_PRINT
 					//printf("no redirection, request goes to default dest!\n");
@@ -738,7 +758,8 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 
 				ip_service_key.service_id = h.alt->service_id;
 				ip_service_key.ip_dst = ipv4_header->src_addr;
-				int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
+				//int ret = 
+				rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
 				uint64_t* ptr = (uint64_t*) lookup_result;
 				*ptr = load;
 				printf("HOST_FEEDBACK_MSG:");
@@ -753,36 +774,51 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 			}
 			else if(msgtype == SWITCH_FEEDBACK_MSG){
 				uint64_t load;
+				//after swap_ipv4, dst_addr is the src addr of the feedback messages
+				uint32_t src_switch_addr = ipv4_header->dst_addr;
+				uint16_t index;
+				for(index = 0; index < fs->switch_ip_list_length; index++){
+					if(src_switch_addr == fs->switch_ip_list[index])
+						break;
+				}
+				//gossip_rx_samples: log (index i, rx_time_intervals for index i) to a data sturcture
+				//clock_gettime(CLOCK_REALTIME, &end_ts[index]);
+                //uint64_t diff_us = clock_gettime_diff_us(&start_ts[index], &end_ts[index]);
+				//gossip_rx_samples[gossip_rx_array_index].switch_index = index;
+				//gossip_rx_samples[gossip_rx_array_index].inter_rx_interval = diff_us;
+				//clock_gettime(CLOCK_REALTIME, &start_ts[index]);
+				//gossip_rx_array_index++;
+
 				// SWITCH_FEEDBACK_MSG 
 				// It could be very similar to HOST_FEEDBACK_MSG since we need packet drop
 				// We may need bulk update to the ip2load hashtable
 				int hash_ret;
 				for(uint16_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
 					ip_service_key.service_id = h.alt->service_id_list[host_index];
-					if(h.alt->host_ip_list[host_index] == empty_addr){
-						#ifdef REDIRECT_DEBUG_PRINT
-						printf("ip_service_key.ip_dst: empty_addr\n");
-						#endif
-						continue;
-					}
+					// if(h.alt->host_ip_list[host_index] == empty_addr){
+					// 	#ifdef REDIRECT_DEBUG_PRINT
+					// 	printf("ip_service_key.ip_dst: empty_addr\n");
+					// 	#endif
+					// 	continue;
+					// }
 					ip_service_key.ip_dst = h.alt->host_ip_list[host_index];
-					#ifdef REDIRECT_DEBUG_PRINT	
-					print_ipaddr("ip_service_key.ip_dst",ip_service_key.ip_dst);				
-					#endif
+					// #ifdef REDIRECT_DEBUG_PRINT	
+					// print_ipaddr("ip_service_key.ip_dst",ip_service_key.ip_dst);				
+					// #endif
 					load = (uint64_t) h.alt->host_queue_depth[host_index];
 					//int ret = rte_hash_add_key_data(fs->ip2load_table, (void*) &ip_service_key, (void *)((uintptr_t) &load));
 					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
 					uint64_t* ptr = (uint64_t*) lookup_result;
 					*ptr = load;
 					//#ifdef REDIRECT_DEBUG_PRINT
-					if(ret < 0)
-						printf("rte_hash_add_key_data failed!\n");					
-					else{
-						//#ifdef REDIRECT_DEBUG_PRINT
-						//print_ipaddr("SWITCH_FEEDBACK:",ip_service_key.ip_dst);
-						//printf("load:%" PRIu64 "\n", load);
-						//#endif
-					}
+					// if(ret < 0)
+					// 	printf("rte_hash_add_key_data failed!\n");					
+					// else{
+					// 	//#ifdef REDIRECT_DEBUG_PRINT
+					// 	//print_ipaddr("SWITCH_FEEDBACK:",ip_service_key.ip_dst);
+					// 	//printf("load:%" PRIu64 "\n", load);
+					// 	//#endif
+					// }
 					//#endif
 					hash_ret += ret;
 				}

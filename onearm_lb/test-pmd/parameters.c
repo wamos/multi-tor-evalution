@@ -567,6 +567,30 @@ parse_event_printing_config(const char *optarg, int enable)
 	return 0;
 }
 
+//ST: parse file name and open a log file with an experiment's perfix name and rate!
+int parse_switch_logfile(const char *expname){
+	const char log_prefix[] = "../../log/";
+	const char rx_interval_type[] = ".rxint";
+	const char req_qd_type[] = ".qd";
+	char logfilename[100];
+
+	// log file for gossip_rx_samples
+	// snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(rx_interval_type), "%s%s%s", log_prefix, expname, rx_interval_type);
+	// gossip_rx_logfp = fopen(logfilename, "w+");
+    // if(gossip_rx_logfp == NULL){
+    //    return -1;
+    // }
+
+	// log file for req_qd_samples
+	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(req_qd_type), "%s%s%s", log_prefix, expname, req_qd_type);
+	req_qd_logfp = fopen(logfilename, "w+");
+    if(req_qd_logfp == NULL){
+       return -1;
+    }
+
+	return 0;
+}
+
 void
 launch_args_parse(int argc, char** argv)
 {
@@ -630,6 +654,9 @@ launch_args_parse(int argc, char** argv)
 		{ "enable-hw-vlan-extend",      0, 0, 0 },
 		{ "enable-hw-qinq-strip",       0, 0, 0 },
 		{ "enable-drop-en",            0, 0, 0 },
+		{ "gossip-period",			1, 0, 0 }, // ST: put our options here
+		{ "load-delta",			1, 0, 0 }, // ST: put our options here
+		{ "switch-logfile",         1, 0, 0}, // ST: put our options here
 		{ "enable-info-exchange",      0, 0, 0}, // ST: put our options here
 		{ "enable-replica-selection",        0, 0, 0},
 		{ "disable-rss",                0, 0, 0 },
@@ -1037,6 +1064,36 @@ launch_args_parse(int argc, char** argv)
 			if (!strcmp(lgopts[opt_idx].name, "enable-drop-en"))
 				rx_drop_en = 1;
 
+			
+			if (!strcmp(lgopts[opt_idx].name, "load-delta")) {
+				n = atoi(optarg);
+				if (n >=0){
+					load_delta = (uint64_t) n;	
+					printf("load_delta:%" PRIu64 "\n", load_delta);
+				}
+				else{
+					rte_exit(EXIT_FAILURE, "invalid load-delta %d"
+						  "for dpdk-switch\n", n);
+				}
+			}
+
+			if (!strcmp(lgopts[opt_idx].name, "gossip-period")) {
+				n = atoi(optarg);
+				if (n >=0){
+					gossip_period = (uint64_t) n;
+					printf("gossip_period:%" PRIu64 "\n", gossip_period);
+				}
+				else{
+					rte_exit(EXIT_FAILURE, "invalid gossip-period %d"
+						  "for dpdk-switch\n", n);
+				}
+			}			
+			
+			if (!strcmp(lgopts[opt_idx].name, "switch-logfile"))
+				if (parse_switch_logfile(optarg))
+					rte_exit(EXIT_FAILURE,
+					   "switch-logfile parsing failed\n");
+						
 			//ST: our own option: info_exchange_enabled
 			if (!strcmp(lgopts[opt_idx].name, "enable-info-exchange"))
 				info_exchange_enabled = 1;

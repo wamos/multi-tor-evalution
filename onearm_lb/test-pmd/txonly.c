@@ -253,7 +253,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 		struct table_key* ip_service_pair = (struct table_key*) (uintptr_t) next_key;
 		//print_ipaddr("rte_hash_iterate1, ip_dst", ip_service_pair->ip_dst);
 		int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) ip_service_pair, &lookup_result);
-		if(ret>=0){
+		if(likely(ret>=0)){
 			ptr = (uint64_t*) lookup_result;
 			//printf("rte_hash_lookup_data. load:%" PRIu64 "\n", *ptr);
 		}
@@ -369,7 +369,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		//TODO: check whether src mac addr would have make tx-only buggy?
 		//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
 		int ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.src_addr, &lookup_result);
-		if(ret >= 0){
+		if(likely(ret >= 0)){
 			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
 			rte_ether_addr_copy(lookup1, &eth_hdr.s_addr);
 			//print_ether_addr("ETH_SRC_ADDR in TX:", &eth_hdr.s_addr);
@@ -380,7 +380,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 		// look up mac address of the selected switch ip address
 		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &pkt_ip_hdr.dst_addr, &lookup_result);
-		if(ret >= 0){
+		if(likely(ret >= 0)){
 			struct rte_ether_addr* lookup1 = (struct rte_ether_addr*)(uintptr_t) lookup_result;
 			rte_ether_addr_copy(lookup1, &eth_hdr.d_addr);
 			//print_ether_addr("ETH_DST_ADDR in TX:", &eth_hdr.d_addr);
@@ -451,7 +451,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	sleep_ts1=ts1;
-	realnanosleep(100*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
 
 	// struct rte_eth_burst_mode mode;
 	// rte_eth_rx_burst_mode_get(fs->rx_port, fs->rx_queue, &mode);

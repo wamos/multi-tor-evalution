@@ -326,6 +326,27 @@ extern int testpmd_logtype; /**< Log type for testpmd logs */
 extern uint8_t  interactive;
 extern uint8_t  auto_start;
 extern uint8_t  tx_first;
+//ST: TODO: gossip_rx_log and req_qd_log
+struct gossip_rx_log {	
+	uint64_t inter_rx_interval;
+	uint16_t switch_index;
+};
+
+struct req_qd_log {
+	uint16_t local_load;
+	//uint16_t remote_min_load;
+	uint16_t remote_load_array[2];
+};
+
+extern FILE* gossip_rx_logfp;
+extern FILE* req_qd_logfp;
+extern struct gossip_rx_log* gossip_rx_samples;
+extern struct req_qd_log* req_qd_samples;
+extern uint32_t gossip_rx_array_index;
+extern uint32_t req_qd_array_index;
+extern uint64_t gossip_period;
+extern uint64_t load_delta;
+//ST: bool enabled variables
 extern uint8_t  info_exchange_enabled;
 extern uint8_t  replica_selection_enabled;
 extern char cmdline_filename[PATH_MAX]; /**< offline commands file */
