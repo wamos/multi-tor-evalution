@@ -560,37 +560,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				print_ipaddr("min ip_addr:", h.alt->replica_dst_list[min_index]);
 				printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 				#endif
-
-				//attach load info based on local_ip_list to the header
-				// for(uint16_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
-				// 	ip_service_key.ip_dst = fs->local_ip_list[host_index];
-				// 	ip_service_key.service_id = h.alt->service_id;
-				// 	int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
-				// 	if(ret >= 0){
-				// 		uint64_t* load_value = (uint64_t*) lookup_result;
-				// 		h.alt->host_queue_depth[host_index] = (uint16_t) *load_value;
-				// 	}
-
-				// 	#ifndef REDIRECT_DEBUG_PRINT
-				// 	else{
-				// 		h.alt->host_queue_depth[host_index] = 0;
-				// 	}
-				// 	#else
-				// 	else{
-				// 		printf("key not found!\n");
-				// 		h.alt->host_queue_depth[host_index] = 0;
-				// 	}
-				// 	printf("attached load:%" PRIu16 "\n", h.alt->host_queue_depth[host_index]);
-				// 	#endif
-
-				// 	h.alt->service_id_list[host_index] = ip_service_key.service_id;
-				// 	h.alt->host_ip_list[host_index]    = ip_service_key.ip_dst;
-				// }
+				
 				h.alt->redirection+=1;
-
-				//#if THRESHOLD_REDIRECT==1
 				}
-				//#endif
 
 				//print_ipaddr("dst_ipaddr", ipv4_header->dst_addr);
 				// look up dst mac addr for our ip dest addr				
@@ -649,6 +621,26 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 						printf("invalid parameters\n");
 				}
 
+				uint16_t remote_index = 0;
+				for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
+					ip_service_key.ip_dst = h.alt->replica_dst_list[host_index];
+					ip_service_key.service_id = h.alt->service_id;
+
+					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
+					uint64_t* ptr = (uint64_t*) lookup_result;
+
+					if(ret >= 0){
+						if(ip_service_key.ip_dst == h.alt->alt_dst_ip){
+							req_qd_samples[req_qd_array_index].local_load = *ptr;
+						}
+						else{ 
+							req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = *ptr;
+							remote_index++;
+						}
+					}
+				}
+				req_qd_array_index++;
+								
 				//[load++,load--]: increment ip2load table's load for ipv4_header->dst_addr
 				ip_service_key.service_id = h.alt->service_id;
 				ip_service_key.ip_dst = ipv4_header->dst_addr;
