@@ -472,7 +472,11 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		uint8_t redirection = recv_req_ptr->redirection;
 		uint32_t req_index = req_id%TS_ARRAY_SIZE;
 		
-		ts_array[req_index].rx_timestamp = ts2;		
+		ts_array[req_index].rx_timestamp = ts2;
+		//printf("req id:%" PRIu32 "\n", req_id);
+		if(unlikely(req_id > lambda_rate*600))
+			continue;
+		
 		latency_samples[req_id] = clock_gettime_diff_ns(&ts_array[req_index].rx_timestamp, &ts_array[req_index].tx_timestamp);
 		redirection_samples[req_id] = redirection;
 		latency_array_index++;

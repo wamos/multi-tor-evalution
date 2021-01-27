@@ -3202,6 +3202,7 @@ pmd_test_exit(void)
 		
 		printf("Dump latency samples\n");
 		//[UNTESTED] dump all latency samples to the logfp
+		printf("latency_array_index:%" PRIu32 "\n", latency_array_index);
 		//drop the first record. It may be corrupted by random packets received accidently 
 		for(uint32_t index = 1; index < latency_array_index; index++){
 			fprintf(logfp, "%" PRIu8 ",%" PRIu64 "\n", redirection_samples[index], latency_samples[index]);
