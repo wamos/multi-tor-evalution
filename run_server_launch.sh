@@ -1,5 +1,7 @@
 #cd ~/efs
 INDEX=$1
+LOGFILE=$2
+CLIENT_RATE=$3
 if [[ $(mount | grep nfs4) ]]; then
     echo "efs fs-89d4d58c mounted"
 else
@@ -14,5 +16,5 @@ fi
 cd ~/efs/kvstore_testbed/multithread/build
 IP_ADDR=$(/sbin/ifconfig eth0 | awk '$1 == "inet" {print $2}' | tee -a /tmp/client_self_ip.txt)
 echo "server" ${INDEX} " on " ${IP_ADDR}
-taskset 0x00000004 ./redirection_udp_server ${IP_ADDR} 7000 30 test 0 > server_${INDEX}.log
+taskset 0x00000004 ./redirection_udp_server ${IP_ADDR} 7000 30 ${LOGFILE}_${INDEX} ${CLIENT_RATE}
 

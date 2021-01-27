@@ -1,6 +1,15 @@
 line_num=$1
 IP_ADDR=$2
 RELAUNCH=$3
+
+IP_ADDR=$1
+INDEX=$2 # we use line num aka index in replica addr list to set up default dest 
+LAMBDA=$3
+LOGFILE=$4
+RANDOM=$5
+SELECT=$6
+RELAUNCH=$7
+
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -38,12 +47,9 @@ if [[ "$USER" == "ec2-user" ]]; then
 	echo "hugepages"
 	cat  /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
 	if [[ "$RELAUNCH" == "relaunch" ]]; then
-		sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
-		cd efs/multi-tor-evalution
-		sh dpdk_client_config.sh ${line_num}
-		sh dpdk_setup_aws.sh
-		cd onearm_lb/test-pmd-clean-state/
-		sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=20000 > dpdk_${line_num}.log
+		cd efs/multi-tor-evalution/onearm_lb/test-pmd-clean-state/
+		sh run_dpdk_client_launch.sh ${ip} ${n} ${LAMBDA} ${LOGFILE} ${RANDOM} ${SELECT}
+		#sudo ./build/app/testpmd -l 0-4 -n 4 -- -a --portmask=0x1 --nb-cores=1 --forward-mode=txonly --lambda_rate=20000 > dpdk_${line_num}.log
 	fi
 	echo "------------------------"
 else

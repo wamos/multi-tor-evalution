@@ -1,7 +1,12 @@
+#run_dpdk_switch_check.sh  ${FWD_MODE} ${ip} ${n} ${LOGFILE} ${GOSSIP} ${LOAD_DELTA} ${RELAUNCH} 2>&1 &
 FWD_MODE=$1
 IP_ADDR=$2
-NUM=$3
-RELAUNCH=$4
+INDEX=$3
+LOGFILE=$4
+GOSSIP=$5
+LOAD_DELTA=$6
+LAMBDA=$7
+RELAUNCH=$8
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -28,7 +33,7 @@ export LD_LIBRARY_PATH
 
 USER=$(ps aux | grep ./build/app/testpmd | awk '{print $1}' | head -1)
 if [[ "$USER" == "ec2-user" ]]; then
-	echo "dpdk switch needs relaunch on" ${IP_ADDR}
+	echo "dpdk-switch-" ${INDEX} " needs relaunch on" ${IP_ADDR}
 	echo "check per-host config:"
 	echo "switch_self_ip.txt"
 	cat /tmp/switch_self_ip.txt
@@ -38,25 +43,11 @@ if [[ "$USER" == "ec2-user" ]]; then
 	echo "hugepages"
 	cat  /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
 	if [[ "$RELAUNCH" == "relaunch" ]]; then
-		#sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
-		cd efs/multi-tor-evalution
-		#sh dpdk_switch_config.sh
-		#sh dpdk_setup_aws.sh
-		cd onearm_lb/test-pmd/	
-		if [[ "$FWD_MODE" == "5tswap" ]]; then
-			sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap > sw_${NUM}.log
-		else
-        	#sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=replica-select
-			sudo ./build/app/testpmd -l 0-5 -n 4 -- -a --portmask=0x1 --nb-cores=5 --forward-mode=replica-select --enable-info-exchange > sw_${NUM}.log
-		fi
-	elif [[ "$RELAUNCH" == "reconfig" ]]; then
-		sudo python3 ${RTE_SDK}/usertools/dpdk-devbind.py --bind=ena 0000:00:06.0
-		cd efs/multi-tor-evalution
-		sh dpdk_switch_config.sh
-		sh dpdk_setup_aws.sh	
+		sh run_dpdk_switch_launch.sh ${FWD_MODE} ${IP_ADDR} ${INDEX} ${LOGFILE}\
+		${GOSSIP} ${LOAD_DELTA} ${LAMBDA}
 	fi
 else
-	echo "dpdk switch has launched on" ${IP_ADDR} #"with" ${FWD_MODE}
+	echo "dpdk-switch-" ${INDEX} "has launched on" ${IP_ADDR} #"with" ${FWD_MODE}
 	ps aux | grep ./build/app/testpmd
 	echo "display per-host config:"
 	echo "switch_self_ip.txt"

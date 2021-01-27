@@ -1,5 +1,9 @@
 LAUNCH_OR_KILL=$1
-RELAUNCH=$2 #"relaunch" or other 
+LOGFILE=$2
+LAMBDA=$3
+RANDOM="--enable-random-dest"
+SELECT="--enable-replica-select"
+RELAUNCH=$4 #"relaunch" or other 
 FWD_MODE="txonly"
 
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
@@ -17,19 +21,27 @@ done
 echo ""
 
 n=0 #n is our client index 
-for i in "${client_ip_list[@]}"
+for ip in "${client_ip_list[@]}"
 do
-	echo ${LAUNCH_OR_KILL} " dpdk client on " ${i}
+	echo ${LAUNCH_OR_KILL} " dpdk client on " ${ip}
 	if [[ "$LAUNCH_OR_KILL" == "launch" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_client_launch.sh ${n} 2>&1 &
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_launch.sh ${ip} ${n} ${LAMBDA}\
+		${LOGFILE} ${RANDOM} ${SELECT} 2>&1 &
 	elif [[ "$LAUNCH_OR_KILL" == "check" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_client_check.sh ${n} ${i} ${RELAUNCH} 2>&1 &
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_check.sh ${ip} ${n} ${LAMBDA}\
+		${LOGFILE} ${RANDOM} ${SELECT} ${RELAUNCH} 2>&1 &
 		sleep 1
 	elif [[ "$LAUNCH_OR_KILL" == "config" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_client_config.sh ${n} 2>&1 &
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_config.sh ${ip} ${n} 2>&1 &
+	elif [[ "$LAUNCH_OR_KILL" == "stop" ]]; then
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_kill.sh SIGINT 2>&1 &
+	elif [[ "$LAUNCH_OR_KILL" == "kill" ]]; then
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_kill.sh SIGKILL 2>&1 &
 	else
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${i} 'sh -s' < run_dpdk_kill.sh 2>&1 &
+		echo "invalid command, try again!"
+		echo "sh launch_dpdk_client.sh {launch/check/config/stop/kill} {log_file_name} {lambda_rate} {relaunch(optional)}"
 	fi
 	n=$((n+1))
 done
+
 

@@ -1,4 +1,7 @@
-NUM=$1
+# run_dpdk_switch_config.sh ${FWD_MODE} ${ip} ${n}
+FWD_MODE=$1
+IP_ADDR=$2
+INDEX=$3
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -26,3 +29,4 @@ cd onearm_lb/test-pmd/
 if [ -f sw_${NUM}.log ]; then
     rm sw_${NUM}.log
 fi
+echo "config dpdk-switch" ${INDEX} on ${IP_ADDR} with ${FWD_MODE} 
