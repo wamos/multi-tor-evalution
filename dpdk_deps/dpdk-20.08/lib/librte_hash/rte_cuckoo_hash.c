@@ -28,6 +28,7 @@
 #include <rte_compat.h>
 #include <rte_vect.h>
 #include <rte_tailq.h>
+#include <rte_atomic.h> /* for rte_smp_wmb() */
 
 #include "rte_hash.h"
 #include "rte_cuckoo_hash.h"
@@ -1185,6 +1186,116 @@ rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data)
 	else
 		return ret;
 }
+
+/* add_or_sub = 1 means addition, add_or_sub = 1 mean subtraction */
+static inline int32_t
+search_and_fetch_add_sub(const struct rte_hash *h, const void *key,
+	struct rte_hash_bucket *bkt, uint16_t sig, uint8_t add_or_sub)
+{
+	int i;
+	struct rte_hash_key *k, *keys = h->key_store;
+
+	for (i = 0; i < RTE_HASH_BUCKET_ENTRIES; i++) {
+		if (bkt->sig_current[i] == sig) {
+			k = (struct rte_hash_key *) ((char *)keys +
+					bkt->key_idx[i] * h->key_entry_size);
+			if (rte_hash_cmp_eq(key, k->key, h) == 0) {
+				/*
+				 * ST: not sure about the exact memory order we need
+				 * 1. incrementing/decrementing counters only requires atomicity 
+				 * thus we can use __ATOMIC_RELAXED. 
+				 * 2. Use __ATOMIC_RELEASE like they used in search_and_update
+				 * 3, Use __ATOMIC_ACQ_REL to ensure correctness
+				 */
+				if(add_or_sub)
+					__atomic_fetch_add(&k->pdata, 1, __ATOMIC_ACQ_REL);
+				else
+					__atomic_fetch_sub(&k->pdata, 1, __ATOMIC_ACQ_REL);
+				/*
+				 * Per rte_atomic.h says:
+				 * Guarantees that the STORE operations that precede the
+				 * rte_smp_wmb() call are globally visible across the lcores
+ 				 * before the STORE operations that follows it.
+				 */
+				rte_smp_wmb();	
+				/*
+				 * Return index where key is stored,
+				 * subtracting the first dummy index
+				 */
+				return bkt->key_idx[i] - 1;
+			}
+		}
+	}
+	return -1;
+}
+
+static inline int32_t
+__rte_hash_add_sub_data_with_key(const struct rte_hash *h, const void *key,
+						hash_sig_t sig, uint8_t add_or_sub)
+{
+	uint16_t short_sig;
+	uint32_t prim_bucket_idx, sec_bucket_idx;
+	struct rte_hash_bucket *prim_bkt, *sec_bkt, *cur_bkt;
+	int ret;
+
+	short_sig = get_short_sig(sig);
+	prim_bucket_idx = get_prim_bucket_index(h, sig);
+	sec_bucket_idx = get_alt_bucket_index(h, prim_bucket_idx, short_sig);
+	prim_bkt = &h->buckets[prim_bucket_idx];
+	sec_bkt = &h->buckets[sec_bucket_idx];
+	rte_prefetch0(prim_bkt);
+	rte_prefetch0(sec_bkt);
+	
+	/* Check if key is already inserted in primary location */
+	__hash_rw_writer_lock(h);
+	ret = search_and_fetch_add_sub(h, key, prim_bkt, short_sig, add_or_sub);
+	if (ret != -1) {
+		__hash_rw_writer_unlock(h);
+		return ret;
+	}
+
+	/* Check if key is already inserted in secondary location */
+	FOR_EACH_BUCKET(cur_bkt, sec_bkt) {
+		ret = search_and_fetch_add_sub(h, key, cur_bkt, short_sig, add_or_sub);
+		if (ret != -1) {
+			__hash_rw_writer_unlock(h);
+			return ret;
+		}
+	}
+
+	__hash_rw_writer_unlock(h);
+
+	return -ENOENT;
+}
+
+int
+rte_hash_increment_data_with_key(const struct rte_hash *h, const void *key)
+{
+	int ret;
+
+	RETURN_IF_TRUE(((h == NULL) || (key == NULL)), -EINVAL);
+
+	ret = __rte_hash_add_sub_data_with_key(h, key, rte_hash_hash(h, key), 1);
+	if (ret >= 0)
+		return 0;
+	else
+		return ret;
+}
+
+int
+rte_hash_decrement_data_with_key(const struct rte_hash *h, const void *key)
+{
+	int ret;
+
+	RETURN_IF_TRUE(((h == NULL) || (key == NULL)), -EINVAL);
+
+	ret = __rte_hash_add_sub_data_with_key(h, key, rte_hash_hash(h, key), 0);
+	if (ret >= 0)
+		return 0;
+	else
+		return ret;
+}
+
 
 /* Search one bucket to find the match key - uses rw lock */
 static inline int32_t
