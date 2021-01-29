@@ -568,6 +568,8 @@ parse_event_printing_config(const char *optarg, int enable)
 int parse_latency_logfile(const char *expname){
 	const char log_prefix[] = "../../log/";
 	const char log[] = ".log";
+	const char rxts[] = ".crxts"; // for client's rx timestamps
+	const char txts[] = ".ctxts";// for client's tx timestamps
 	char logfilename[100];
 	char rate_str[12];
 	int rate = (int) lambda_rate/1000;
@@ -577,6 +579,19 @@ int parse_latency_logfile(const char *expname){
     if(logfp == NULL){
        return -1;
     }
+
+	snprintf(logfilename, sizeof(rate_str) + sizeof(log_prefix) + sizeof(rxts) + 30, "%s%s%s%s", log_prefix, expname, rate_str, rxts);
+    rxts_fp= fopen(logfilename, "w+");
+    if(rxts_fp == NULL){
+       return -1;
+    }
+
+	snprintf(logfilename, sizeof(rate_str) + sizeof(log_prefix) + sizeof(txts) + 30, "%s%s%s%s", log_prefix, expname, rate_str, txts);
+    txts_fp= fopen(logfilename, "w+");
+    if(txts_fp == NULL){
+       return -1;
+    }
+
 	return 0;
 }
 

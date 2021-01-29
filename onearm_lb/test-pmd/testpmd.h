@@ -338,6 +338,11 @@ struct req_qd_log {
 	uint16_t remote_load_array[2];
 };
 
+
+extern volatile uint32_t rx_ts_index;
+extern struct timespec* rx_timestamps;
+extern FILE* rx_ts_fp;
+
 extern FILE* gossip_rx_logfp;
 extern FILE* req_qd_logfp;
 extern struct gossip_rx_log* gossip_rx_samples;

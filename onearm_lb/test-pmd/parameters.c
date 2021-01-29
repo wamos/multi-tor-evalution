@@ -570,21 +570,29 @@ parse_event_printing_config(const char *optarg, int enable)
 //ST: parse file name and open a log file with an experiment's perfix name and rate!
 int parse_switch_logfile(const char *expname){
 	const char log_prefix[] = "../../log/";
-	const char rx_interval_type[] = ".rxint";
+	const char rx_interval_type[] = ".fwdint";
 	const char req_qd_type[] = ".qd";
+	const char tor_rx_ts_type[] = ".trxts";
 	char logfilename[100];
 
-	// log file for gossip_rx_samples
-	// snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(rx_interval_type), "%s%s%s", log_prefix, expname, rx_interval_type);
-	// gossip_rx_logfp = fopen(logfilename, "w+");
-    // if(gossip_rx_logfp == NULL){
-    //    return -1;
-    // }
+	//log file for gossip_rx_samples
+	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(rx_interval_type), "%s%s%s", log_prefix, expname, rx_interval_type);
+	gossip_rx_logfp = fopen(logfilename, "w+");
+    if(gossip_rx_logfp == NULL){
+       return -1;
+    }
 
 	// log file for req_qd_samples
 	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(req_qd_type), "%s%s%s", log_prefix, expname, req_qd_type);
 	req_qd_logfp = fopen(logfilename, "w+");
     if(req_qd_logfp == NULL){
+       return -1;
+    }
+
+	// log file for rx_timestamps
+	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(tor_rx_ts_type), "%s%s%s", log_prefix, expname, tor_rx_ts_type);
+	rx_ts_fp = fopen(logfilename, "w+");
+    if(rx_ts_fp == NULL){
        return -1;
     }
 

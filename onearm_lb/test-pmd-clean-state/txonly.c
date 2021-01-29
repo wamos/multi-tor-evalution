@@ -427,6 +427,8 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	ts_array[pkt_req_hdr.request_id%TS_ARRAY_SIZE].tx_timestamp = ts1;
+	tx_timestamps[tx_ts_index] = ts1;
+	tx_ts_index++;
 	nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, 1);
 
 	/*
@@ -471,6 +473,9 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		uint32_t req_id = recv_req_ptr->request_id;	
 		uint8_t redirection = recv_req_ptr->redirection;
 		uint32_t req_index = req_id%TS_ARRAY_SIZE;
+		
+		rx_timestamps[rx_ts_index] = ts2;
+		rx_ts_index++;
 		
 		ts_array[req_index].rx_timestamp = ts2;
 		//printf("req id:%" PRIu32 "\n", req_id);

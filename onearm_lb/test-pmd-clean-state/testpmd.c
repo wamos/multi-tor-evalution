@@ -136,10 +136,16 @@ uint32_t client_self_ip;
 uint64_t* poisson_arrival = NULL;
 //ST: our log file pointer is here!
 FILE* logfp = NULL;
+FILE* rxts_fp = NULL;
+FILE* txts_fp = NULL;
 uint64_t* latency_samples = NULL;
 uint8_t* redirection_samples = NULL;
+struct timespec* tx_timestamps = NULL;
+struct timespec* rx_timestamps = NULL;
 uint32_t latency_array_size=1;
-uint32_t latency_array_index = 0;
+uint32_t volatile rx_ts_index = 0;
+uint32_t volatile tx_ts_index = 0;
+uint32_t volatile latency_array_index = 0;
 double lambda_rate=50000.0;// 50k RPS by default
 int replica_select_enabled = 0;
 int random_dest_enabled = 0;
@@ -1505,13 +1511,15 @@ init_hashtable(void){
 	latency_array_size= (uint32_t) lambda_rate*600; // sufficent for a 10-min experiment
 	latency_samples = rte_zmalloc("latency_samples", sizeof(uint64_t) * latency_array_size, 0);
 	redirection_samples = rte_zmalloc("redirection_samples", sizeof(uint8_t) * latency_array_size, 0);
+	tx_timestamps = rte_zmalloc("tx_timestamps", sizeof(struct timespec) * latency_array_size, 0);
+	rx_timestamps = rte_zmalloc("rx_timestamps", sizeof(struct timespec) * latency_array_size, 0);
 
 	//ST: shown configured lambda_rate from parameters.c
 	printf("lambda_rate:%lf\n", lambda_rate);
 	GenPoissonArrival(lambda_rate, POISSON_ARRIVAL_ARRAY_SIZE, poisson_arrival);
-	for(int n = 0; n < 100; n++){
-		printf("%" PRIu64 "\n",  poisson_arrival[n]);
-    }
+	// for(int n = 0; n < 100; n++){
+	// 	printf("%" PRIu64 "\n",  poisson_arrival[n]);
+    // }
 	
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
@@ -3206,8 +3214,24 @@ pmd_test_exit(void)
 		//drop the first record. It may be corrupted by random packets received accidently 
 		for(uint32_t index = 1; index < latency_array_index; index++){
 			fprintf(logfp, "%" PRIu8 ",%" PRIu64 "\n", redirection_samples[index], latency_samples[index]);
+		}				
+
+		printf("Dump rx timestamp samples\n");
+		for(uint32_t index = 1; index < rx_ts_index; index++){
+			fprintf(rxts_fp, "%" PRId64 ",%" PRId64 "\n", rx_timestamps[index].tv_sec, rx_timestamps[index].tv_nsec);
 		}
+
+		printf("Dump tx timestamp samples\n");
+		for(uint32_t index = 1; index < tx_ts_index; index++){
+			fprintf(txts_fp, "%" PRId64 ",%" PRId64 "\n", tx_timestamps[index].tv_sec, tx_timestamps[index].tv_nsec);
+		}
+
 		fclose(logfp);
+		fclose(txts_fp);
+		fclose(rxts_fp);
+
+		rte_free(rx_timestamps);
+		rte_free(tx_timestamps);
 		rte_free(latency_samples);
 		rte_free(redirection_samples);
 
@@ -4010,8 +4034,13 @@ main(int argc, char** argv)
 		}
 
 		//printf("Press enter to exit\n");
-		while(1){			
+		printf("latency_array_index:%" PRIu32 "\n", latency_array_index);
+		while(lambda_rate*60 > latency_array_index){
+			//if(latency_array_index > 0)
+			//printf("latency_array_index:%" PRIu32 "\n", latency_array_index);
 		}
+		//printf("while-loop breaks\n");
+		printf("latency_array_index:%" PRIu32 "\n", latency_array_index);
 		//rc = read(0, &c, 1);
 		pmd_test_exit();
 		if (rc < 0)
