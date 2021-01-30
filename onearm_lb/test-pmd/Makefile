@@ -11,7 +11,7 @@ ifeq ($(CONFIG_RTE_TEST_PMD),y)
 APP = testpmd
 
 #CFLAGS += -O3
-CFLAGS += -O0 -g
+CFLAGS += -O3 -g
 CFLAGS += $(WERROR_FLAGS)
 CFLAGS += -Wno-deprecated-declarations
 
