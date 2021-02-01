@@ -2,6 +2,9 @@
  * Copyright(c) 2010-2014 Intel Corporation
  */
 
+// how to run it?
+// sudo ./build/app/test_hash -l 0-3 -n 4
+
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -59,6 +62,121 @@ static rte_atomic64_t gcycles;
 static rte_atomic64_t ginsertions;
 
 static int use_htm;
+
+static int
+test_hash_add_sub_buggy(void *arg)
+{
+	uint64_t i;
+	uint16_t pos_core;
+	uint32_t lcore_id = rte_lcore_id();
+	uint16_t *enabled_core_ids = (uint16_t *)arg;
+
+	for (pos_core = 0; pos_core < rte_lcore_count(); pos_core++) {
+		if (enabled_core_ids[pos_core] == lcore_id)
+			break;
+	}
+
+	printf("test_hash_add_sub_buggy: core id:%" PRIu16 "\n", pos_core);
+
+	void* data;
+	for (i = 0; i < nb_entries; i++){
+		if(pos_core%2==0){ //even-th cores, i == even ++, i == odd --
+			if(i%2==0){
+				int ret = rte_hash_lookup_data(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i],
+					&data);
+
+				if(ret < 0){
+					printf("increment_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+				else{
+					uint64_t* ptr = (uint64_t*) data;
+					*ptr = *ptr + 1;
+				}
+			}
+			else{				
+				int ret = rte_hash_lookup_data(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i],
+					&data);
+					
+				if(ret < 0){
+					printf("decrement_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+				else{
+					uint64_t* ptr = (uint64_t*) data;
+					*ptr = *ptr - 1;
+				}
+
+			}
+		}
+		else{ //odd-th cores, i == even --, i == odd ++
+			if(i%2==0){
+				int ret = rte_hash_lookup_data(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i],
+					&data);
+					
+				if(ret < 0){
+					//printf("lookup failed\n");
+					printf("decrement_data_with_key failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+				else{
+					uint64_t* ptr = (uint64_t*) data;
+					*ptr = *ptr - 1;
+				}
+			}
+			else{
+				int ret = rte_hash_lookup_data(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i],
+					&data);
+
+				if(ret < 0){					
+					printf("increment_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+				else{
+					uint64_t* ptr = (uint64_t*) data;
+					*ptr = *ptr + 1;
+				}
+			}
+		}
+	}
+	return 0;
+}
 
 static int
 test_hash_add_sub_worker(void *arg)
@@ -313,6 +431,11 @@ test_hash_multiwriter(void)
 		goto err3;
 	}
 
+	if(rte_lcore_count()%2 != 0 ){
+		printf("Need even numbers of lcores\n");
+		goto err3;
+	}
+
 	/* Fire all threads. */
 	rte_eal_mp_remote_launch(test_hash_multiwriter_worker,
 				 enabled_core_ids, CALL_MASTER );
@@ -328,7 +451,7 @@ test_hash_multiwriter(void)
 	while (rte_hash_iterate(handle, &next_key, &next_data, &iter) >= 0) {
 		/* Search for the key in the list of keys added .*/
 		i = *(const uint32_t *)next_key;
-		printf("keys[i]%" PRIu32 ",key:%" PRIu32 "\n", tbl_multiwriter_test_params.keys[i], i);
+		//printf("keys[i]%" PRIu32 ",key:%" PRIu32 "\n", tbl_multiwriter_test_params.keys[i], i);
 		//printf("tbl_multiwriter_test_params[%u]:%"PRIu32 "\n",i , tbl_multiwriter_test_params.keys[i]);
 		tbl_multiwriter_test_params.found[i]++;
 	}
@@ -384,9 +507,29 @@ test_hash_multiwriter(void)
 		if(key != value){
 			printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
 		}
-		if(key == value){
-			printf("key%" PRIu32 ":value%" PRIu64 "passed!\n", key, value);
+		// if(key == value){
+		// 	printf("key:%" PRIu32 ", value:%" PRIu64 "passed!\n", key, value);
+		// }
+	}
+
+	printf("multiwriter hash table, using pointer to increment/decrement.\n");
+	rte_eal_mp_remote_launch(test_hash_add_sub_buggy, enabled_core_ids, CALL_MASTER);
+	rte_eal_mp_wait_lcore();
+
+	const void *next_key3;
+	void *next_data3;
+	uint32_t iter3 = 0;
+
+	while (rte_hash_iterate(handle, &next_key3, &next_data3, &iter3) >= 0) {
+		/* Search for the key in the list of keys added .*/
+		uint32_t key = *(const uint32_t *)next_key3;
+		uint64_t value = *(uint64_t *)next_data3;
+		if(key != value){
+			printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
 		}
+		// if(key == value){
+		// 	printf("key:%" PRIu32 ", value:%" PRIu64 "passed!\n", key, value);
+		// }
 	}
 
 	rte_free(tbl_multiwriter_test_params.found);
