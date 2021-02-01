@@ -45,19 +45,115 @@
 
 struct {
 	uint32_t *keys;
+	uint64_t *values;
 	uint32_t *found;
 	uint32_t nb_tsx_insertion;
 	struct rte_hash *h;
 } tbl_multiwriter_test_params;
 
 const uint32_t nb_entries = 5*1024; //5*1024*1024;
-const uint32_t nb_total_tsx_insertion = 4.5*1024; //4.5*1024*1024;
+const uint32_t nb_total_tsx_insertion = 5*1024; //4.5*1024*1024;
 uint32_t rounded_nb_total_tsx_insertion;
 
 static rte_atomic64_t gcycles;
 static rte_atomic64_t ginsertions;
 
 static int use_htm;
+
+static int
+test_hash_add_sub_worker(void *arg)
+{
+	uint64_t i;
+	uint16_t pos_core;
+	uint32_t lcore_id = rte_lcore_id();
+	uint16_t *enabled_core_ids = (uint16_t *)arg;
+
+	for (pos_core = 0; pos_core < rte_lcore_count(); pos_core++) {
+		if (enabled_core_ids[pos_core] == lcore_id)
+			break;
+	}
+
+	printf("test_hash_add_sub_worker: core id:%" PRIu16 "\n", pos_core);
+
+	for (i = 0; i < nb_entries; i++){
+		if(pos_core%2==0){ //even-th cores, i == even ++, i == odd --
+			if(i%2==0){
+				int ret = rte_hash_increment_data_with_key( //int ret = rte_hash_lookup(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i]);
+
+				if(ret < 0){
+					printf("increment_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+			}
+			else{				
+				int ret = rte_hash_decrement_data_with_key( //int ret = rte_hash_lookup(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i]);
+					
+				if(ret < 0){
+					printf("decrement_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+
+			}
+		}
+		else{ //odd-th cores, i == even --, i == odd ++
+			if(i%2==0){
+				int ret = rte_hash_decrement_data_with_key( //int ret = rte_hash_lookup(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i]);
+					
+				if(ret < 0){
+					//printf("lookup failed\n");
+					printf("decrement_data_with_key failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+			}
+			else{
+				int ret = rte_hash_increment_data_with_key( //int ret = rte_hash_lookup(
+					tbl_multiwriter_test_params.h, 
+					&tbl_multiwriter_test_params.keys[i]);
+
+				if(ret < 0){					
+					printf("increment_data_with_key failed\n");
+					//printf("lookup failed\n");
+					if(ret == - EINVAL){
+						printf("-EINVAL\n");
+					}
+					if(ret == -ENOENT){
+						printf("-ENOENT\n");
+					}
+					return -1;
+				}
+			}
+		}
+	}
+
+	return 0;
+}
 
 static int
 test_hash_multiwriter_worker(void *arg)
@@ -91,8 +187,9 @@ test_hash_multiwriter_worker(void *arg)
 	for (i = offset;
 	     i < offset + tbl_multiwriter_test_params.nb_tsx_insertion;
 	     i++) {
-		if (rte_hash_add_key(tbl_multiwriter_test_params.h,
-				     tbl_multiwriter_test_params.keys + i) < 0)
+		if (rte_hash_add_key_data(tbl_multiwriter_test_params.h,
+				     tbl_multiwriter_test_params.keys + i, 
+					 tbl_multiwriter_test_params.values + i) < 0)
 			break;
 	}
 
@@ -117,6 +214,7 @@ test_hash_multiwriter(void)
 	uint16_t core_id;
 
 	uint32_t *keys;
+	uint64_t *values;
 	uint32_t *found;
 
 	struct rte_hash_parameters hash_params = {
@@ -163,16 +261,25 @@ test_hash_multiwriter(void)
 	rte_srand(rte_rdtsc());
 
 	keys = rte_malloc(NULL, sizeof(uint32_t) * nb_entries, 0);
+	values = rte_malloc(NULL, sizeof(uint64_t) * nb_entries, 0);
 
 	if (keys == NULL) {
 		printf("RTE_MALLOC failed\n");
 		goto err1;
 	}
 
-	for (i = 0; i < nb_entries; i++)
+	if (values == NULL){
+		printf("RTE_MALLOC failed\n");
+		goto err1;
+	}
+
+	for (i = 0; i < nb_entries; i++){
 		keys[i] = i;
+		values[i] = (uint64_t) i;
+	}
 
 	tbl_multiwriter_test_params.keys = keys;
+	tbl_multiwriter_test_params.values = values;
 
 	found = rte_zmalloc(NULL, sizeof(uint32_t) * nb_entries, 0);
 	if (found == NULL) {
@@ -221,12 +328,15 @@ test_hash_multiwriter(void)
 	while (rte_hash_iterate(handle, &next_key, &next_data, &iter) >= 0) {
 		/* Search for the key in the list of keys added .*/
 		i = *(const uint32_t *)next_key;
+		printf("keys[i]%" PRIu32 ",key:%" PRIu32 "\n", tbl_multiwriter_test_params.keys[i], i);
+		//printf("tbl_multiwriter_test_params[%u]:%"PRIu32 "\n",i , tbl_multiwriter_test_params.keys[i]);
 		tbl_multiwriter_test_params.found[i]++;
 	}
 
 	for (i = 0; i < rounded_nb_total_tsx_insertion; i++) {
 		if (tbl_multiwriter_test_params.keys[i]
 		    != RTE_APP_TEST_HASH_MULTIWRITER_FAILED) {
+			//printf("tbl_multiwriter_test_params[%u]:%"PRIu32 "\n",i , tbl_multiwriter_test_params.keys[i]);
 			if (tbl_multiwriter_test_params.found[i] > 1) {
 				duplicated_keys++;
 				break;
@@ -256,6 +366,28 @@ test_hash_multiwriter(void)
 		rte_atomic64_read(&ginsertions);
 
 	printf(" cycles per insertion: %llu\n", cycles_per_insertion);
+
+	printf("multiwriter hash table increment/decrement.\n");
+	rte_eal_mp_remote_launch(test_hash_add_sub_worker, enabled_core_ids, CALL_MASTER);
+	rte_eal_mp_wait_lcore();
+
+	printf("hash table increment/decrement done.\n");
+
+	const void *next_key2;
+	void *next_data2;
+	uint32_t iter2 = 0;
+
+	while (rte_hash_iterate(handle, &next_key2, &next_data2, &iter2) >= 0) {
+		/* Search for the key in the list of keys added .*/
+		uint32_t key = *(const uint32_t *)next_key2;
+		uint64_t value = *(uint64_t *)next_data2;
+		if(key != value){
+			printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
+		}
+		if(key == value){
+			printf("key%" PRIu32 ":value%" PRIu64 "passed!\n", key, value);
+		}
+	}
 
 	rte_free(tbl_multiwriter_test_params.found);
 	rte_free(tbl_multiwriter_test_params.keys);
@@ -303,20 +435,20 @@ test_hash_multiwriter_main(__rte_unused void *arg)
 	return 0;
 }
 
-static int
-lcore_hello(__rte_unused void *arg)
-{
-	unsigned lcore_id;
-	lcore_id = rte_lcore_id();
-	printf("hello from core %u\n", lcore_id);
-	return 0;
-}
+// static int
+// lcore_hello(__rte_unused void *arg)
+// {
+// 	unsigned lcore_id;
+// 	lcore_id = rte_lcore_id();
+// 	printf("hello from core %u\n", lcore_id);
+// 	return 0;
+// }
 
 int
 main(int argc, char **argv)
 {
 	int ret;
-	unsigned lcore_id;
+	//unsigned lcore_id;
 
 	ret = rte_eal_init(argc, argv);
 	if (ret < 0)
