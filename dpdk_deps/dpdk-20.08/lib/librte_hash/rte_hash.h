@@ -281,6 +281,35 @@ int32_t
 rte_hash_add_key_with_hash(const struct rte_hash *h, const void *key, hash_sig_t sig);
 
 /**
+ * @warning
+ * @b EXPERIMENTAL: ST: stingw's own hash table function to support 
+ * dpdk-switch applications. Only suporrted by cuckoo hash at this point.
+ * Update the value of a key-value pair to an existing hash table if the
+ * key-value pair is already exited thus a pointer to the value is not needed.
+ * If the key is not found, then the update operation has no effect and return
+ * -ENOENT to the calleer.
+ * This operation is not multi-thread safe
+ * and should only be called from one thread by default.
+ * Thread safety can be enabled by setting flag during
+ * table creation.
+ *
+ * @param h
+ *   Hash table to add the key to.
+ * @param key
+ *   Key to add to the hash table.
+ * @return
+ *   - 0 if incremented successfully
+ *   - -EINVAL if the parameters are invalid.
+ *   - -ENOENT if the key is not found.
+ */
+__rte_experimental
+int
+rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key)
+
+/**
+ * @warning
+ * @b EXPERIMENTAL: ST: stingw's own hash table function to support 
+ * dpdk-switch applications. Only suporrted by cuckoo hash at this point.
  * Incerment the value of a specific key to an existing hash table. 
  * This operation is not multi-thread safe
  * and should only be called from one thread by default.
@@ -294,12 +323,15 @@ rte_hash_add_key_with_hash(const struct rte_hash *h, const void *key, hash_sig_t
  * @return
  *   - 0 if incremented successfully
  *   - -EINVAL if the parameters are invalid.
- *   - -ENOSPC if there is no space in the hash for this key.
+ *   - -ENOENT if the key is not found.
  */
+__rte_experimental
 int
 rte_hash_increment_data_with_key(const struct rte_hash *h, const void *key);
 
 /**
+ * @b EXPERIMENTAL: ST: stingw's own hash table function to support 
+ * dpdk-switch applications. Only suporrted by cuckoo hash at this point.
  * Decerment the value of a specific key to an existing hash table. 
  * This operation is not multi-thread safe
  * and should only be called from one thread by default.
@@ -313,8 +345,9 @@ rte_hash_increment_data_with_key(const struct rte_hash *h, const void *key);
  * @return
  *   - 0 if decremented successfully
  *   - -EINVAL if the parameters are invalid.
- *   - -ENOSPC if there is no space in the hash for this key.
+ *   - -ENOENT if the key is not found.
  */
+__rte_experimental
 int
 rte_hash_decrement_data_with_key(const struct rte_hash *h, const void *key);
 
