@@ -244,10 +244,18 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	//pkt_ip_hdr.dst_addr = fs->client_alt_header.alt_dst_ip;
 
 	int ret;
+	//random default destination
+	if(random_dest_enabled){
+		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.replica_dst_list[rand()%NUM_REPLICA];
+	}
+	else{//default setup
+		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;
+	}
+	
 	// lookup routing table for ToR's ip as dest ip
 	void* lookup_result;
 	uint32_t* nexthop_ptr;
-	uint32_t dest_addr = fs->client_alt_header.alt_dst_ip;
+	uint32_t dest_addr = pkt_req_hdr.alt_dst_ip;
 	ret = rte_hash_lookup_data(fs->routing_table, (void*) &dest_addr, &lookup_result);
 	if(ret >= 0){
 		nexthop_ptr = (uint32_t*) lookup_result;
@@ -325,14 +333,6 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	//update_checksum(&pkt_ip_hdr, &pkt_udp_hdr);
 	pkt_req_hdr.service_id = fs->client_alt_header.service_id;
 	pkt_req_hdr.request_id = pkt_req_hdr.request_id + 1;//%TS_ARRAY_SIZE;
-
-	//random default destination
-	if(random_dest_enabled){
-		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.replica_dst_list[rand()%NUM_REPLICA];
-	}
-	else{//default setup
-		pkt_req_hdr.alt_dst_ip = fs->client_alt_header.alt_dst_ip;
-	}
 
 	pkt_req_hdr.actual_src_ip = fs->client_alt_header.actual_src_ip;
 	for(int i = 0; i < NUM_REPLICA; i++){

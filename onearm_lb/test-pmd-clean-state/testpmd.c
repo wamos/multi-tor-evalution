@@ -1503,7 +1503,8 @@ init_hashtable(void){
 		rte_panic("malloc failure\n");
 	}
 
-	poisson_arrival = rte_zmalloc("poisson_arrival", sizeof(uint64_t) * POISSON_ARRIVAL_ARRAY_SIZE, 0);
+	//sufficent for a 1-min duration
+	poisson_arrival = rte_zmalloc("poisson_arrival", sizeof(uint64_t) * lambda_rate*60, 0);
 	if(poisson_arrival == NULL){
 		rte_panic("malloc failure\n");
 	}
@@ -1516,7 +1517,8 @@ init_hashtable(void){
 
 	//ST: shown configured lambda_rate from parameters.c
 	printf("lambda_rate:%lf\n", lambda_rate);
-	GenPoissonArrival(lambda_rate, POISSON_ARRIVAL_ARRAY_SIZE, poisson_arrival);
+	//sufficent for a 1-min duration
+	GenPoissonArrival(lambda_rate, lambda_rate*60, poisson_arrival);
 	// for(int n = 0; n < 100; n++){
 	// 	printf("%" PRIu64 "\n",  poisson_arrival[n]);
     // }
