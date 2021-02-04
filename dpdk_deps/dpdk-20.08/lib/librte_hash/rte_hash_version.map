@@ -25,6 +25,9 @@ DPDK_20.0 {
 	rte_hash_lookup_with_hash_data;
 	rte_hash_reset;
 	rte_hash_set_cmp_func;
+	rte_hash_inplace_update_data_with_key;
+	rte_hash_increment_data_with_key;
+	rte_hash_decrement_data_with_key;
 
 	local: *;
 };

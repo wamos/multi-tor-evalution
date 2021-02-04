@@ -1189,7 +1189,7 @@ rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data)
 
 static inline int32_t
 search_and_inplace_update(const struct rte_hash *h, const void *key,
-	struct rte_hash_bucket *bkt, uint16_t sig, void* value)
+	struct rte_hash_bucket *bkt, uint16_t sig, uint64_t* value)
 {
 	int i;
 	struct rte_hash_key *k, *keys = h->key_store;
@@ -1203,8 +1203,11 @@ search_and_inplace_update(const struct rte_hash *h, const void *key,
 				* https://gcc.gnu.org/onlinedocs/gcc/_005f_005fatomic-Builtins.html
 				* void __atomic_store (type *ptr, type *val, int memorder)
 				* It stores the value of *val into *ptr
+				* hack: __atomic_store requires 1st argument to be non-void pointer type
+				* we cast pointers to uint64_t* 
 				*/
-				__atomic_store(k->pdata, value, __ATOMIC_RELEASE);
+				uint64_t* pdata_ptr= (uint64_t*) k->pdata;
+				__atomic_store(pdata_ptr, value, __ATOMIC_RELEASE);
 				/*
 				 * Per rte_atomic.h says:
 				 * Guarantees that the STORE operations that precede the
@@ -1244,10 +1247,11 @@ search_and_fetch_add_sub(const struct rte_hash *h, const void *key,
 				 * 2. Use __ATOMIC_RELEASE like they used in search_and_update
 				 * 3, Use __ATOMIC_ACQ_REL to ensure correctness
 				 */
+				uint64_t* pdata_ptr= (uint64_t*) k->pdata;
 				if(add_or_sub)
-					__atomic_fetch_add(&k->pdata, 1, __ATOMIC_ACQ_REL);
+					__atomic_fetch_add(pdata_ptr, 1, __ATOMIC_ACQ_REL);
 				else
-					__atomic_fetch_sub(&k->pdata, 1, __ATOMIC_ACQ_REL);
+					__atomic_fetch_add(pdata_ptr, -1, __ATOMIC_ACQ_REL);
 				/*
 				 * Per rte_atomic.h says:
 				 * Guarantees that the STORE operations that precede the
@@ -1268,7 +1272,7 @@ search_and_fetch_add_sub(const struct rte_hash *h, const void *key,
 
 static inline int32_t
 __rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key,
-						hash_sig_t sig, void* value)
+						hash_sig_t sig, uint64_t* value)
 {
 	uint16_t short_sig;
 	uint32_t prim_bucket_idx, sec_bucket_idx;
@@ -1373,13 +1377,14 @@ rte_hash_decrement_data_with_key(const struct rte_hash *h, const void *key)
 }
 
 int
-rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key)
+rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key,
+		uint64_t* value)
 {
 	int ret;
 
 	RETURN_IF_TRUE(((h == NULL) || (key == NULL)), -EINVAL);
 
-	ret = __rte_hash_inplace_update_data_with_key(h, key, rte_hash_hash(h, key), 0);
+	ret = __rte_hash_inplace_update_data_with_key(h, key, rte_hash_hash(h, key), value);
 	if (ret >= 0)
 		return 0;
 	else

@@ -297,14 +297,17 @@ rte_hash_add_key_with_hash(const struct rte_hash *h, const void *key, hash_sig_t
  *   Hash table to add the key to.
  * @param key
  *   Key to add to the hash table.
+ * @param value
+ *   Value to be updated to the value of key, It needs to be a uint64_t value
  * @return
  *   - 0 if incremented successfully
  *   - -EINVAL if the parameters are invalid.
  *   - -ENOENT if the key is not found.
  */
-__rte_experimental
+//__rte_experimental
 int
-rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key)
+rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key,
+		uint64_t* value);
 
 /**
  * @warning
@@ -325,7 +328,7 @@ rte_hash_inplace_update_data_with_key(const struct rte_hash *h, const void *key)
  *   - -EINVAL if the parameters are invalid.
  *   - -ENOENT if the key is not found.
  */
-__rte_experimental
+//__rte_experimental
 int
 rte_hash_increment_data_with_key(const struct rte_hash *h, const void *key);
 
@@ -347,7 +350,7 @@ rte_hash_increment_data_with_key(const struct rte_hash *h, const void *key);
  *   - -EINVAL if the parameters are invalid.
  *   - -ENOENT if the key is not found.
  */
-__rte_experimental
+//__rte_experimental
 int
 rte_hash_decrement_data_with_key(const struct rte_hash *h, const void *key);
 
