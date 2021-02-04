@@ -253,13 +253,15 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 		struct table_key* ip_service_pair = (struct table_key*) (uintptr_t) next_key;
 		//print_ipaddr("rte_hash_iterate1, ip_dst", ip_service_pair->ip_dst);
 		int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) ip_service_pair, &lookup_result);
-		if(likely(ret>=0)){
-			ptr = (uint64_t*) lookup_result;
-			//printf("rte_hash_lookup_data. load:%" PRIu64 "\n", *ptr);
-		}
-		else{
+		//if(likely(ret>=0)){
+		uint16_t* ptr = (uint16_t*) lookup_result;
+		if(unlikely(ret < 0))
 			printf("no dest ip found in ip2load table\n");
-		}
+		//printf("rte_hash_lookup_data. load:%" PRIu64 "\n", *ptr);
+		//}
+		// else{
+		// 	printf("no dest ip found in ip2load table\n");
+		// }
 		//uint16_t* load_value = (uint16_t*) (uintptr_t) next_data;
 		//printf("rte_hash_iterate1, load_value%" PRIu16 "\n", *load_value);
 		for(uint32_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
