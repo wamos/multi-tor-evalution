@@ -191,7 +191,6 @@ ifdown()
    #sudo ifconfig eth2 down
 }
 
-#setup_target
 load_igb_uio_module
 #set_non_numa_pages
 ifdown
