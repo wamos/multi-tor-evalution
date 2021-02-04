@@ -18,7 +18,6 @@
 #include <rte_lcore.h>
 #include <rte_debug.h>
 
-
 #include <inttypes.h>
 #include <locale.h>
 
@@ -29,6 +28,7 @@
 #include <rte_random.h>
 #include <rte_spinlock.h>
 #include <rte_jhash.h>
+#include "nanosleep.h"
 
 /*
  * Check condition and return an error if true. Assumes that "handle" is the
@@ -57,6 +57,7 @@ struct {
 const uint32_t nb_entries = 5*1024; //5*1024*1024;
 const uint32_t nb_total_tsx_insertion = 5*1024; //4.5*1024*1024;
 uint32_t rounded_nb_total_tsx_insertion;
+struct timespec ts1, ts2, sleep_ts1, sleep_ts2;
 
 static rte_atomic64_t gcycles;
 static rte_atomic64_t ginsertions;
@@ -172,6 +173,58 @@ test_hash_add_sub_buggy(void *arg)
 					uint64_t* ptr = (uint64_t*) data;
 					*ptr = *ptr + 1;
 				}
+			}
+		}
+	}
+	return 0;
+}
+
+static int
+test_hash_inplace_update_worker(void *arg)
+{
+	uint64_t i;
+	int ret = 0;
+	uint16_t pos_core;
+	uint32_t lcore_id = rte_lcore_id();
+	uint16_t *enabled_core_ids = (uint16_t *)arg;
+	void* lookup_result;
+
+	for (pos_core = 0; pos_core < rte_lcore_count(); pos_core++) {
+		if (enabled_core_ids[pos_core] == lcore_id)
+			break;
+	}
+
+	printf("test_hash_inplace_update_worker: core id:%" PRIu16 "\n", pos_core);
+
+	for (i = 0; i < nb_entries; i++){
+		if(pos_core == 1){ //pos_core == 1, the first core launched!
+			//inplace_update for values[i]*10
+			uint64_t val = tbl_multiwriter_test_params.keys[i]*10;
+			//printf("value:%" PRIu64 "\n", val);
+			ret = rte_hash_inplace_update_data_with_key( tbl_multiwriter_test_params.h, 
+				&tbl_multiwriter_test_params.keys[i], &val);
+			if(unlikely(ret < 0))
+				break;
+			//sleep(1us)
+			clock_gettime(CLOCK_REALTIME, &ts1);
+			sleep_ts1=ts1;
+			realnanosleep(1000, &sleep_ts1, &sleep_ts2);
+		}
+		else{//other cores
+			//sleep(1us)
+			clock_gettime(CLOCK_REALTIME, &ts1);
+			sleep_ts1=ts1;
+			realnanosleep(2000, &sleep_ts1, &sleep_ts2);
+			//lookup
+			ret = rte_hash_lookup_data(tbl_multiwriter_test_params.h,
+				&tbl_multiwriter_test_params.keys[i], &lookup_result);
+			if(unlikely(ret < 0))
+				break;
+			uint64_t value = *(uint64_t*) lookup_result;
+			if(value != tbl_multiwriter_test_params.keys[i]*10){
+				printf("lcore:%" PRIu16 "key:%" PRIu32 ", value:%" PRIu64 ", values[i]:%" PRIu64 "\n",
+				pos_core, tbl_multiwriter_test_params.keys[i], 
+				value, tbl_multiwriter_test_params.values[i]);
 			}
 		}
 	}
@@ -512,25 +565,51 @@ test_hash_multiwriter(void)
 		// }
 	}
 
-	printf("multiwriter hash table, using pointer to increment/decrement.\n");
-	rte_eal_mp_remote_launch(test_hash_add_sub_buggy, enabled_core_ids, CALL_MASTER);
+	// printf("multiwriter hash table, using pointer to increment/decrement.\n");
+	// rte_eal_mp_remote_launch(test_hash_add_sub_buggy, enabled_core_ids, CALL_MASTER);
+	// rte_eal_mp_wait_lcore();
+
+	// const void *next_key3;
+	// void *next_data3;
+	// uint32_t iter3 = 0;
+
+	// uint32_t incorrect_counter = 0;
+	// while (rte_hash_iterate(handle, &next_key3, &next_data3, &iter3) >= 0) {
+	// 	/* Search for the key in the list of keys added .*/
+	// 	uint32_t key = *(const uint32_t *)next_key3;
+	// 	uint64_t value = *(uint64_t *)next_data3;
+	// 	if(key != value){
+	// 		//printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
+	// 		incorrect_counter++;
+	// 	}		
+	// 	// if(key == value){
+	// 	// 	printf("key:%" PRIu32 ", value:%" PRIu64 "passed!\n", key, value);
+	// 	// }
+	// }
+	// printf("# of incorrect key-value pairs:%" PRIu32 "\n", incorrect_counter);
+
+	printf("multiwriter hash table, in-place updates\n");
+	rte_eal_mp_remote_launch(test_hash_inplace_update_worker, enabled_core_ids, CALL_MASTER);
 	rte_eal_mp_wait_lcore();
 
 	const void *next_key3;
 	void *next_data3;
 	uint32_t iter3 = 0;
 
+	uint32_t incorrect_counter = 0;
 	while (rte_hash_iterate(handle, &next_key3, &next_data3, &iter3) >= 0) {
 		/* Search for the key in the list of keys added .*/
 		uint32_t key = *(const uint32_t *)next_key3;
 		uint64_t value = *(uint64_t *)next_data3;
-		if(key != value){
-			printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
-		}
+		if(key*10 != value){
+			//printf("incrementing/decrementing values%" PRIu64 " on key%" PRIu32 "doesn't have the correct value\n", value, key);
+			incorrect_counter++;
+		}		
 		// if(key == value){
 		// 	printf("key:%" PRIu32 ", value:%" PRIu64 "passed!\n", key, value);
 		// }
 	}
+	printf("# of incorrect key-value pairs:%" PRIu32 "\n", incorrect_counter);
 
 	rte_free(tbl_multiwriter_test_params.found);
 	rte_free(tbl_multiwriter_test_params.keys);
