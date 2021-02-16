@@ -326,7 +326,7 @@ extern int testpmd_logtype; /**< Log type for testpmd logs */
 extern uint8_t  interactive;
 extern uint8_t  auto_start;
 extern uint8_t  tx_first;
-//ST: TODO: gossip_rx_log and req_qd_log
+//ST: gossip_rx_log and req_qd_log
 struct gossip_rx_log {	
 	uint64_t inter_rx_interval;
 	uint16_t switch_index;
@@ -338,10 +338,24 @@ struct req_qd_log {
 	uint16_t remote_load_array[2];
 };
 
+/***
+* Our own logging system
+***/
+//ST: request/response timestamps
+#define RESP_TIMESTAMP_LOG 0
+#define REQ_TIMESTAMP_LOG 0
+//ST: log the forward latency
+#define FORWARD_LATENCY_LOG 0
+//ST: log the load information every request sees
+#define LOAD_COUNTER_LOG 1
 
 extern volatile uint32_t rx_ts_index;
 extern struct timespec* rx_timestamps;
 extern FILE* rx_ts_fp;
+
+extern volatile uint32_t tx_ts_index;
+extern struct timespec* tx_timestamps;
+extern FILE* tx_ts_fp;
 
 extern FILE* gossip_rx_logfp;
 extern FILE* req_qd_logfp;
@@ -351,6 +365,7 @@ extern uint32_t gossip_rx_array_index;
 extern uint32_t req_qd_array_index;
 extern uint64_t gossip_period;
 extern uint64_t load_delta;
+extern uint8_t redirect_bound;
 //ST: bool enabled variables
 extern uint8_t  info_exchange_enabled;
 extern uint8_t  replica_selection_enabled;

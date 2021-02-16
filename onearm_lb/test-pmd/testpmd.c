@@ -168,7 +168,10 @@ uint32_t switch_self_ip;
 //ST: define variable from testpmd.h file here
 volatile uint32_t rx_ts_index = 0;
 struct timespec* rx_timestamps = NULL;
+volatile uint32_t tx_ts_index = 0;
+struct timespec* tx_timestamps = NULL;
 FILE* rx_ts_fp = NULL;
+FILE* tx_ts_fp = NULL;
 FILE* gossip_rx_logfp = NULL;
 FILE* req_qd_logfp = NULL;
 struct gossip_rx_log* gossip_rx_samples = NULL;
@@ -178,6 +181,7 @@ uint32_t req_qd_array_index = 0;
 //default setup:
 uint64_t gossip_period = 100;
 uint64_t load_delta = 1;
+uint8_t redirect_bound = 1;
 
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
@@ -1585,20 +1589,33 @@ init_hashtable(void){
 	//uint64_t array_size = gossip_period * 1000 * 1000; // per second size
 	//array_size = array_size*10;
 
+	#if FORWARD_LATENCY_LOG==1
 	gossip_rx_samples = rte_zmalloc("gossip_rx_samples", sizeof(struct gossip_rx_log) *120*40000, 0);
 	if(gossip_rx_samples == NULL){
 		rte_panic("gossip_rx_log malloc failure\n");
 	}
+	#endif
 
+	#if LOAD_COUNTER_LOG==1
 	req_qd_samples = rte_zmalloc("req_qd_samples", sizeof(struct req_qd_log) *120*40000, 0);
 	if(req_qd_samples == NULL){
 		rte_panic("req_qd_samples malloc failure\n");
 	}
+	#endif
 
+	#if REQ_TIMESTAMP_LOG==1
 	rx_timestamps = rte_zmalloc("rx_timestamps", sizeof(struct timespec)*120*40000, 0);
 	if(rx_timestamps == NULL){
 		rte_panic("rx_timestamps malloc failure\n");
 	}
+	#endif
+
+	#if RESP_TIMESTAMP_LOG==1
+	tx_timestamps = rte_zmalloc("tx_timestamps", sizeof(struct timespec)*120*40000, 0);
+	if(tx_timestamps == NULL){
+		rte_panic("tx_timestamps malloc failure\n");
+	}
+	#endif
 
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
@@ -3592,6 +3609,7 @@ pmd_test_exit(void)
 	rte_hash_free(ip2mac_table);
 	rte_hash_free(routing_table);
 
+	#if FORWARD_LATENCY_LOG==1
 	//ST: dump logs
 	printf("Dump forwarding intervals\n");
 	printf("fwd_array_index:%"PRIu32 "\n", gossip_rx_array_index);
@@ -3602,7 +3620,9 @@ pmd_test_exit(void)
 	}
 	fclose(gossip_rx_logfp);
 	rte_free(gossip_rx_samples);
+	#endif
 
+	#if LOAD_COUNTER_LOG==1
 	printf("Dump req_qd_samples\n");
 	printf("req_qd_array_index:%"PRIu32 "\n", req_qd_array_index);
 	if(req_qd_array_index >= 1){
@@ -3616,8 +3636,10 @@ pmd_test_exit(void)
 	}	
 	fclose(req_qd_logfp);	
 	rte_free(req_qd_samples);
+	#endif
 
 	// dump rx_timestamps
+	#if REQ_TIMESTAMP_LOG==1
 	printf("Dump rx_timestamps\n");
 	printf("rx_ts_index:%"PRIu32 "\n", rx_ts_index);
 	if(rx_ts_index >= 1){
@@ -3627,6 +3649,20 @@ pmd_test_exit(void)
 	}
 	fclose(rx_ts_fp);
 	rte_free(rx_timestamps);
+	#endif
+
+	// dump tx_timestamps
+	#if RESP_TIMESTAMP_LOG==1
+	printf("Dump tx_timestamps\n");
+	printf("tx_ts_index:%"PRIu32 "\n", tx_ts_index);
+	if(tx_ts_index >= 1){
+		for(uint32_t index = 1; index < tx_ts_index; index++){
+			fprintf(tx_ts_fp, "%" PRId64 ",%" PRId64 "\n", tx_timestamps[index].tv_sec, tx_timestamps[index].tv_nsec);
+		}
+	}
+	fclose(tx_ts_fp);
+	rte_free(tx_timestamps);
+	#endif
 
 	printf("\nBye...\n");
 }

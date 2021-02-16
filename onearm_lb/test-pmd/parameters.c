@@ -573,28 +573,44 @@ int parse_switch_logfile(const char *expname){
 	const char rx_interval_type[] = ".fwdint";
 	const char req_qd_type[] = ".qd";
 	const char tor_rx_ts_type[] = ".trxts";
+	const char tor_tx_ts_type[] = ".ttxts";
 	char logfilename[100];
 
+	#if FORWARD_LATENCY_LOG==1
 	//log file for gossip_rx_samples
-	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(rx_interval_type), "%s%s%s", log_prefix, expname, rx_interval_type);
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(rx_interval_type), "%s%s%s", log_prefix, expname, rx_interval_type);
 	gossip_rx_logfp = fopen(logfilename, "w+");
     if(gossip_rx_logfp == NULL){
        return -1;
     }
+	#endif
 
+	#if LOAD_COUNTER_LOG==1
 	// log file for req_qd_samples
-	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(req_qd_type), "%s%s%s", log_prefix, expname, req_qd_type);
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(req_qd_type), "%s%s%s", log_prefix, expname, req_qd_type);
 	req_qd_logfp = fopen(logfilename, "w+");
     if(req_qd_logfp == NULL){
        return -1;
     }
+	#endif
 
-	// log file for rx_timestamps
-	snprintf(logfilename, sizeof(log_prefix) + 30 + sizeof(tor_rx_ts_type), "%s%s%s", log_prefix, expname, tor_rx_ts_type);
+	#if REQ_TIMESTAMP_LOG==1
+	// log file for rx_timestamps clients->switch rx timestamp->servers
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_rx_ts_type), "%s%s%s", log_prefix, expname, tor_rx_ts_type);
 	rx_ts_fp = fopen(logfilename, "w+");
     if(rx_ts_fp == NULL){
        return -1;
     }
+	#endif
+
+	#if RESP_TIMESTAMP_LOG==1
+	// log file for tx_timestamps servers->swithc tx timestamp ->clients
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_tx_ts_type), "%s%s%s", log_prefix, expname, tor_tx_ts_type);
+	tx_ts_fp = fopen(logfilename, "w+");
+    if(tx_ts_fp == NULL){
+       return -1;
+    }
+	#endif
 
 	return 0;
 }
@@ -662,6 +678,7 @@ launch_args_parse(int argc, char** argv)
 		{ "enable-hw-vlan-extend",      0, 0, 0 },
 		{ "enable-hw-qinq-strip",       0, 0, 0 },
 		{ "enable-drop-en",            0, 0, 0 },
+		{ "redirect_bound",         1, 0, 0 },
 		{ "gossip-period",			1, 0, 0 }, // ST: put our options here
 		{ "load-delta",			1, 0, 0 }, // ST: put our options here
 		{ "switch-logfile",         1, 0, 0}, // ST: put our options here
@@ -1095,7 +1112,17 @@ launch_args_parse(int argc, char** argv)
 					rte_exit(EXIT_FAILURE, "invalid gossip-period %d"
 						  "for dpdk-switch\n", n);
 				}
-			}			
+			}	
+
+			//redirection_bound
+			if (!strcmp(lgopts[opt_idx].name, "redirect_bound")) {
+				n = atoi(optarg);
+				if (n > 0)
+					redirect_bound = (uint8_t) n;
+				else
+					rte_exit(EXIT_FAILURE, "invalid redirect_bound %d"
+						  "for dpdk-client\n", n);
+			}		
 			
 			if (!strcmp(lgopts[opt_idx].name, "switch-logfile"))
 				if (parse_switch_logfile(optarg))
