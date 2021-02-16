@@ -6,6 +6,7 @@ LOGFILE=$4
 GOSSIP=$5
 LOAD_DELTA=$6
 LAMBDA=$7
+REDIRECT_BOUND=$8
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -38,7 +39,7 @@ fi
 
 echo "run dpdk-switch-" ${INDEX} on ${IP_ADDR}
 sudo ./build/app/testpmd -l 0-5 -n 4 -- -a --portmask=0x1 --nb-cores=5 --forward-mode=${FWD_MODE} --enable-info-exchange \
-    --switch-logfile=${LOGFILE}"_s"${INDEX}_${LAMBDA} --load-delta=${LOAD_DELTA} --gossip-period=${GOSSIP}
+    --switch-logfile=${LOGFILE}"_s"${INDEX}_${LAMBDA} --load-delta=${LOAD_DELTA} --gossip-period=${GOSSIP} --redirect_bound=${REDIRECT_BOUND}
 
 # if [[ "$FWD_MODE" == "5tswap" ]]; then
 # 	sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=6 --forward-mode=5tswap > sw_${NUM}.log

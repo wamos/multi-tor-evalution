@@ -1,10 +1,13 @@
 LAUNCH_OR_KILL=$1
 LOGFILE=$2
 LAMBDA=$3
-RANDOM="--enable-random-dest"
-SELECT="--enable-replica-select"
-RELAUNCH=$4 #"relaunch" or other 
+RAND=$4 #"enable-random-dest"
+SELECT=$5 #"enable-replica-select"
+RELAUNCH=$6 #"relaunch" or other 
 FWD_MODE="txonly"
+
+echo "launch-script:" $RAND
+echo "launch-script:" $SELECT
 
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
@@ -26,10 +29,10 @@ do
 	echo ${LAUNCH_OR_KILL} " dpdk client on " ${ip}
 	if [[ "$LAUNCH_OR_KILL" == "launch" ]]; then
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_launch.sh ${ip} ${n} ${LAMBDA}\
-		${LOGFILE} ${RANDOM} ${SELECT} 2>&1 &
+		${LOGFILE} ${RAND} ${SELECT} 2>&1 &
 	elif [[ "$LAUNCH_OR_KILL" == "check" ]]; then
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_check.sh ${ip} ${n} ${LAMBDA}\
-		${LOGFILE} ${RANDOM} ${SELECT} ${RELAUNCH} 2>&1 &
+		${LOGFILE} ${RAND} ${SELECT} ${RELAUNCH} 2>&1 &
 		sleep 1
 	elif [[ "$LAUNCH_OR_KILL" == "config" ]]; then
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_client_config.sh ${ip} ${n} 2>&1 &

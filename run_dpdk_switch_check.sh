@@ -6,7 +6,8 @@ LOGFILE=$4
 GOSSIP=$5
 LOAD_DELTA=$6
 LAMBDA=$7
-RELAUNCH=$8
+REDIRECT_BOUND=$8
+RELAUNCH=$9
 export RTE_SDK=~/efs/multi-tor-evalution/dpdk_deps/dpdk-20.08
 export RTE_TARGET=x86_64-native-linuxapp-gcc
 
@@ -44,7 +45,7 @@ if [[ "$USER" == "ec2-user" ]]; then
 	cat  /sys/devices/system/node/node0/hugepages/hugepages-2048kB/nr_hugepages
 	if [[ "$RELAUNCH" == "relaunch" ]]; then
 		sh run_dpdk_switch_launch.sh ${FWD_MODE} ${IP_ADDR} ${INDEX} ${LOGFILE}\
-		${GOSSIP} ${LOAD_DELTA} ${LAMBDA}
+		${GOSSIP} ${LOAD_DELTA} ${LAMBDA} ${REDIRECT_BOUND}
 	fi
 else
 	echo "dpdk-switch-" ${INDEX} "has launched on" ${IP_ADDR} #"with" ${FWD_MODE}
