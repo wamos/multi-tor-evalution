@@ -580,17 +580,21 @@ int parse_latency_logfile(const char *expname){
        return -1;
     }
 
+	#if RX_TIMESTAMP_LOG==1
 	snprintf(logfilename, sizeof(rate_str) + sizeof(log_prefix) + sizeof(rxts) + 30, "%s%s%s%s", log_prefix, expname, rate_str, rxts);
     rxts_fp= fopen(logfilename, "w+");
     if(rxts_fp == NULL){
        return -1;
     }
+	#endif
 
+	#if TX_TIMESTAMP_LOG==1
 	snprintf(logfilename, sizeof(rate_str) + sizeof(log_prefix) + sizeof(txts) + 30, "%s%s%s%s", log_prefix, expname, rate_str, txts);
     txts_fp= fopen(logfilename, "w+");
     if(txts_fp == NULL){
        return -1;
     }
+	#endif
 
 	return 0;
 }

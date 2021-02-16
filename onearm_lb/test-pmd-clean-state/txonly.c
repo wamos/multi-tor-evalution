@@ -427,8 +427,10 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	ts_array[pkt_req_hdr.request_id%TS_ARRAY_SIZE].tx_timestamp = ts1;
+	#if TX_TIMESTAMP_LOG==1
 	tx_timestamps[tx_ts_index] = ts1;
 	tx_ts_index++;
+	#endif
 	nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, 1);
 
 	/*
@@ -468,14 +470,23 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	fs->rx_packets += nb_rx;
 	for (int i = 0; i < nb_rx; i++){
+		struct rte_ipv4_hdr* recv_ipv4_ptr = rte_pktmbuf_mtod_offset(recv_burst[i], struct rte_ipv4_hdr *, 
+			sizeof(struct rte_ether_hdr));
+
 		struct alt_header* recv_req_ptr = rte_pktmbuf_mtod_offset(recv_burst[i], struct alt_header *, 
 			sizeof(struct rte_ether_hdr) + sizeof(struct rte_ipv4_hdr) + sizeof(struct rte_udp_hdr));
 		uint32_t req_id = recv_req_ptr->request_id;	
 		uint8_t redirection = recv_req_ptr->redirection;
 		uint32_t req_index = req_id%TS_ARRAY_SIZE;
+
+		if(recv_req_ptr->actual_src_ip != recv_ipv4_ptr->dst_addr){
+			printf("WTF!, req id:%" PRIu32 "\n", req_id);
+		}
 		
+		#if RX_TIMESTAMP_LOG==1
 		rx_timestamps[rx_ts_index] = ts2;
 		rx_ts_index++;
+		#endif
 		
 		ts_array[req_index].rx_timestamp = ts2;
 		//printf("req id:%" PRIu32 "\n", req_id);
@@ -484,6 +495,9 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		
 		latency_samples[req_id] = clock_gettime_diff_ns(&ts_array[req_index].rx_timestamp, &ts_array[req_index].tx_timestamp);
 		redirection_samples[req_id] = redirection;
+		uint64_t req_nsec = recv_req_ptr->req_ts_nsec + 1000000000*recv_req_ptr->req_ts_sec;
+		uint64_t resp_nsec = recv_req_ptr->resp_ts_nsec + 1000000000*recv_req_ptr->resp_ts_sec;
+		server_processing_time_samples[req_id] = resp_nsec - req_nsec;
 		latency_array_index++;
 
 		//printf("%" PRIu64 "\n", req_id, latency);

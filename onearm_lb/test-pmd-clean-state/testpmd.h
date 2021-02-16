@@ -429,6 +429,8 @@ extern struct rte_fdir_conf fdir_conf;
 #define MAX_SINGLE_THREAD_CONNECTIONS 100
 #define TS_ARRAY_SIZE 65536*32 // 2^16 the size of timestamp array and poisson_arrival
 #define POISSON_ARRIVAL_ARRAY_SIZE 65536
+#define RX_TIMESTAMP_LOG 0
+#define TX_TIMESTAMP_LOG 0 
 extern uint64_t* poisson_arrival;
 extern double lambda_rate;
 extern int replica_select_enabled;
@@ -438,6 +440,7 @@ extern FILE* rxts_fp;
 extern FILE* txts_fp;
 extern uint64_t* latency_samples;
 extern uint8_t* redirection_samples;
+extern uint64_t* server_processing_time_samples;
 extern volatile uint32_t latency_array_index;
 extern volatile uint32_t rx_ts_index;
 extern volatile uint32_t tx_ts_index;
