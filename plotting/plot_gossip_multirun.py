@@ -13,7 +13,7 @@ yaxis_limit = float(sys.argv[5])
 #xaxis_limit = float(sys.argv[5])
 extension = "log"
 
-fig_xlabel  = "Load delta"
+fig_xlabel  = "Gossip period (usec)"
 fig_ylabel  = "RTT Latency (usec)" #sys.argv[3]
 
 file_list=[]
@@ -31,10 +31,12 @@ client_tick = ["c0", "c1" , "c2"]
 method_tick  = [title_filter2+"_randselect"]
 method_array = ["replica-select with gossip=25us, redirction=1"]
 #delta_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
-delta_tick=["0", "1", "2", "3", "4"]
-#delta_tick=["1", "10", "20", "40", "80"]
-#run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17", "18", "19"]
-run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+#delta_tick=["0", "1", "2", "3", "4"]
+gossip_tick=["25", "50", "100", "200", "400", "800"]
+run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
+"10", "11", "12", "13", "14", "15", "16", "17", "18", "19",
+"20", "21", "22", "23", "24"]
+#run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 
 #method_array = ["random", "replica-select min load delta=1"]
@@ -60,23 +62,23 @@ color_list = ['xkcd:blue', 'xkcd:orange', 'xkcd:orchid', 'xkcd:sienna', 'xkcd:gr
 
 fig, ax = plt.subplots(figsize=(10, 5))
 
-mean_per_delta_mean_array = np.zeros(len(delta_tick))
-mean_per_delta_sem_array = np.zeros(len(delta_tick))
+mean_per_delta_mean_array = np.zeros(len(gossip_tick))
+mean_per_delta_sem_array = np.zeros(len(gossip_tick))
 
-pct95th_per_delta_mean_array = np.zeros(len(delta_tick))
-pct95th_per_delta_sem_array = np.zeros(len(delta_tick))
+pct95th_per_delta_mean_array = np.zeros(len(gossip_tick))
+pct95th_per_delta_sem_array = np.zeros(len(gossip_tick))
 
-pct99th_per_delta_mean_array = np.zeros(len(delta_tick))
-pct99th_per_delta_sem_array = np.zeros(len(delta_tick))
+pct99th_per_delta_mean_array = np.zeros(len(gossip_tick))
+pct99th_per_delta_sem_array = np.zeros(len(gossip_tick))
 
-pct99th9_per_delta_mean_array = np.zeros(len(delta_tick))
-pct99th9_per_delta_sem_array = np.zeros(len(delta_tick))
+pct99th9_per_delta_mean_array = np.zeros(len(gossip_tick))
+pct99th9_per_delta_sem_array = np.zeros(len(gossip_tick))
 #loss_rate = np.zeros(len(delta_tick))
 
 method_index=0
-delat_index=0
-#for method in method_tick:
-for delta in delta_tick:
+gossip_index=0
+#for method in gossip_tick:
+for gossip in gossip_tick:
     mean_array = np.zeros(len(run_tick))
     pct95th_array = np.zeros(len(run_tick))
     pct99th_array = np.zeros(len(run_tick))
@@ -91,7 +93,7 @@ for delta in delta_tick:
         #filename0 = "/Users/wamos/matplot/kv_cdf/"+ working_dir + "/"+ method + "_" + rate + "." + extension
         #data = pd.read_csv(filename0, delimiter = ",", usecols=[1]).values
         parent_dir = "/home/ec2-user/efs/multi-tor-evalution/log/"
-        filename_prefix = method_tick[method_index] + "_d_" + delta + "_run" + run
+        filename_prefix = method_tick[method_index] + "_g_" + gossip + "_run" + run
 
         filename0 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[0] + "_" + rate + "." + extension
         filename1 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[1] + "_" + rate + "." + extension
@@ -139,7 +141,7 @@ for delta in delta_tick:
         array_index = array_index + 1
 
     #calculate std error of mean 
-    print( "method:" + method_tick[method_index] + ",rate:" + rate + ",delta:" + delta)
+    print( "method:" + method_tick[method_index] + ",rate:" + rate + ",gossip:" + gossip)
     redirction_ratio = float(redirction_count)/float(data_count)
     print("redirction_count"+str(redirction_count))
     print("data_count"+str(data_count))
@@ -155,51 +157,51 @@ for delta in delta_tick:
     pct99th_mean  = np.percentile(pct99th_array, 50)
     pct99th9_mean = np.percentile(pct99th9_array, 50)
 
-    mean_per_delta_mean_array[delat_index] = mean_mean
-    mean_per_delta_sem_array[delat_index]  = mean_sem
+    mean_per_delta_mean_array[gossip_index] = mean_mean
+    mean_per_delta_sem_array[gossip_index]  = mean_sem
 
-    pct95th_per_delta_mean_array[delat_index]  = pct95th_mean
-    pct95th_per_delta_sem_array[delat_index]   = pct95th_sem
+    pct95th_per_delta_mean_array[gossip_index]  = pct95th_mean
+    pct95th_per_delta_sem_array[gossip_index]   = pct95th_sem
 
-    pct99th_per_delta_mean_array[delat_index]  = pct99th_mean
-    pct99th_per_delta_sem_array[delat_index]   = pct99th_sem
+    pct99th_per_delta_mean_array[gossip_index]  = pct99th_mean
+    pct99th_per_delta_sem_array[gossip_index]   = pct99th_sem
 
-    pct99th9_per_delta_mean_array[delat_index] = pct99th9_mean
-    pct99th9_per_delta_sem_array[delat_index]  = pct99th9_sem
+    pct99th9_per_delta_mean_array[gossip_index] = pct99th9_mean
+    pct99th9_per_delta_sem_array[gossip_index]  = pct99th9_sem
     
-    delat_index = delat_index + 1 
+    gossip_index = gossip_index + 1 
 
 
 for i in range(0,len(mean_per_delta_mean_array)):
     print(mean_per_delta_mean_array[i], end =" ")
 print("\n-----------------------")
 
-ax.errorbar(delta_tick, mean_per_delta_mean_array, yerr=mean_per_delta_sem_array,color=color_list[method_index], linestyle='solid',
+ax.errorbar(gossip_tick, mean_per_delta_mean_array, yerr=mean_per_delta_sem_array,color=color_list[method_index], linestyle='solid',
     label=method_array[method_index]+":50th pct", marker='.', lw=1.5)
 
 for i in range(0,len(pct95th_per_delta_mean_array)):
     print(pct95th_per_delta_mean_array[i], end =" ")
 print("\n-----------------------")
 
-ax.errorbar(delta_tick, pct95th_per_delta_mean_array, yerr=pct95th_per_delta_sem_array ,color=color_list[method_index], linestyle='dashed',
+ax.errorbar(gossip_tick, pct95th_per_delta_mean_array, yerr=pct95th_per_delta_sem_array ,color=color_list[method_index], linestyle='dashed',
     label=method_array[method_index]+":95th pct", marker='.', lw=1.5)
 
 for i in range(0,len(pct99th_per_delta_mean_array)):
     print(pct99th_per_delta_mean_array[i], end =" ")
 print("\n-----------------------")
 
-ax.errorbar(delta_tick, pct99th_per_delta_mean_array, yerr=pct99th_per_delta_sem_array ,color=color_list[method_index], linestyle='dotted',
+ax.errorbar(gossip_tick, pct99th_per_delta_mean_array, yerr=pct99th_per_delta_sem_array ,color=color_list[method_index], linestyle='dotted',
     label=method_array[method_index]+":99th pct", marker='.', lw=1.5)
 
 for i in range(0,len(pct99th9_per_delta_mean_array)):
     print(pct99th9_per_delta_mean_array[i], end =" ")
 print("\n-----------------------")
 
-ax.errorbar(delta_tick, pct99th9_per_delta_mean_array, yerr=pct99th9_per_delta_sem_array ,color=color_list[method_index], linestyle='dashdot',
+ax.errorbar(gossip_tick, pct99th9_per_delta_mean_array, yerr=pct99th9_per_delta_sem_array ,color=color_list[method_index], linestyle='dashdot',
     label=method_array[method_index]+":99.9th pct", marker='.', lw=1.5)
 
 ax.grid(True)
-ax.legend(loc='upper left', prop={'size': 8})
+ax.legend(loc='lower left', prop={'size': 8})
 ax.set_title(fig_title)
 ax.set_xlabel(fig_xlabel)
 ax.set_ylabel(fig_ylabel)
@@ -207,7 +209,6 @@ ax.set_ylabel(fig_ylabel)
 ax.set_ylim(bottom=0, top=yaxis_limit)
 #ax.set_yscale('log')
 #ax.ticklabel_format(useOffset=False, style='plain')
-
 method_index = method_index + 1
 
 

@@ -14,7 +14,8 @@ yaxis_limit = float(sys.argv[5])
 extension = "log"
 
 fig_xlabel  = "Request Redirection Bound"
-fig_ylabel  = "RTT Latency (usec)" #sys.argv[3]
+#fig_ylabel  = "RTT Latency (usec)" #sys.argv[3]
+fig_ylabel  = "Number of Redirection Per Request" #sys.argv[3]
 
 file_list=[]
 for root, subdirs, files in os.walk(working_dir):
@@ -29,10 +30,14 @@ for root, subdirs, files in os.walk(working_dir):
 rate = title_filter1
 client_tick = ["c0", "c1" , "c2"]
 method_tick  = [title_filter2+"_randselect"]
-method_array = ["replica-select with gossip=25us, redirction=1"]
+method_array = ["replica-select with gossip=25us, delta=1"]
 
-redir_tick = ["1", "2", "3", "4", "5"]
-run_tick=["0", "1", "2", "3", "4"]
+redir_tick = ["1", "2", "3", "4", "5", "6", "7", "8"]
+#redir_tick = ["8"]
+#"10", "11", "12", "13", "14", "15", "16", "17", "18", "19", "20", "25", "30"]
+
+run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", 
+"10", "11", "12", "13", "14", "15", "16", "17", "18", "19"]
 delta="1"
 
 #method_array = ["random", "replica-select min load delta=1"]
@@ -83,6 +88,7 @@ for redir in redir_tick:
     
     array_index=0    
     for run in run_tick:
+        print(run)
         #### base cases
         #filename0 = "/Users/wamos/matplot/kv_cdf/"+ working_dir + "/"+ method + "_" + rate + "." + extension
         #data = pd.read_csv(filename0, delimiter = ",", usecols=[1]).values
@@ -93,6 +99,7 @@ for redir in redir_tick:
         filename1 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[1] + "_" + rate + "." + extension
         filename2 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[2] + "_" + rate + "." + extension
 
+        usecol=1
         ## normal cases
         ## column 0, column 1, column 2
         ## number of redirections, end-to-end latency, server processing latency
@@ -109,12 +116,15 @@ for redir in redir_tick:
         loss_count = np.count_nonzero(data==0)
         loss_rate[array_index] = (float) (np.count_nonzero(data==0))/data.shape[0]        
         data = data [data > 0]
+        ## if we use usecols=1
+        #if usecol == 1:
+        data = data/1000
         #data = data[data < 1000*1000]
 
-        mean_array[array_index]    = np.percentile(data, 50)/1000
-        pct95th_array[array_index] = np.percentile(data, 95)/1000
-        pct99th_array[array_index] = np.percentile(data, 99)/1000
-        pct99th9_array[array_index] = np.percentile(data, 99.9)/1000
+        mean_array[array_index]    = np.percentile(data, 50)
+        pct95th_array[array_index] = np.percentile(data, 95)
+        pct99th_array[array_index] = np.percentile(data, 99)
+        pct99th9_array[array_index] = np.percentile(data, 99.9)
     
         # print( "method:" + method_tick[method_index] + ",rate:" + rate + ",delta:" + delta)
         # print("loss_count:"+ str(loss_count))
