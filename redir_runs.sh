@@ -4,13 +4,13 @@ EXP_NAME=$1
 #gossip_period_list=(25 50 100 200 400 800)
 #load_delta_list=(0 1 2 3 4 5 6 7 8 9 10)
 #load_delta_list=(1 10 20 40 80)
-redir_list=(1 2 3 4 5 6 7 8 9 10 15 20 25 30)
+redir_list=(1 2 3 4 5 6 7 8)
 load_delta="1"
 gossip="25"
 #redirection="1"
 
-#20 runs
-run_list=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
+#25 runs
+run_list=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20)
 #run_list=(0 1 2 3 4)
 
 #method_list=("fixed-dest" "random-only" "power-of-2" "random-select")
@@ -21,7 +21,7 @@ method="random-select"
 
 #coarse_rate_list=(10000 15000)
 #coarse_rate_list=(20000 25000 30000 35000)
-coarse_rate_list=(35000)
+coarse_rate_list=(30000 33000)
 #coarse_rate_list=(35000)
 # 5*20+ 20 = 220
 

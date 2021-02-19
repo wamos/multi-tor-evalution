@@ -2,25 +2,25 @@ EXP_NAME=$1
 
 #https://serverfault.com/questions/477503/check-if-array-is-empty-in-bash/477506
 #gossip_period_list=(25 50 100 200 400 800)
-#load_delta_list=(0 1 2 3 4 5 6 7 8 9 10)
-load_delta_list=(1 10 20 40 80)
+load_delta_list=(0 1 2 3 4)
+#load_delta_list=(1 10 20 40 80)
 #delta="1"
 gossip="25"
 redirection="1"
 
 #20 runs
-run_list=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19)
+run_list=(0 1 2 3 4 5 6 7 8 9)
 
 #method_list=("fixed-dest" "random-only" "power-of-2" "random-select")
 # method_list=("random-only" 
 #             "random-select")
-#method="random-select"
-method="random-only" 
+method="random-select"
+#method="random-only" 
 
 #coarse_rate_list=(10000 15000)
 #coarse_rate_list=(20000 25000 30000 35000)
-#coarse_rate_list=(30000 31000 32000 33000 34000 35000)
-coarse_rate_list=(35000)
+coarse_rate_list=(20000 23000 25000 28000)
+#coarse_rate_list=(35000)
 # 5*20+ 20 = 220
 
 # zoomin_rate_list=(20000 21000 22000 23000 24000
