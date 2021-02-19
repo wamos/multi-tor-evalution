@@ -1,0 +1,23 @@
+python3 plot_pctl.py feb9_zoomin_rates log log zoomin_rates
+python3 plot_gossip_pctl.py feb10_diffgossip_31k log log diffgossip1_31k
+python3 plot_delta_pctl.py feb10_diffdelta 30k log diffdelta_30k
+
+python3 plot_delta_multirun.py feb12_diffdelta4 35k diffdelta4 diffdelta4_35k 2000
+python3 plot_delta_multirun.py feb13_diffdelta5 35k diffdelta5 diffdelta5_35k 2500
+python3 plot_delta_qd_multirun.py feb13_diffdelta5 35k diffdelta5 diffqd_35k 100
+
+ 1002  python plot_rates_multirun.py feb17_bimodal_15_60_test3 log bimodal_15_60_test3 bimodal3 2000
+ 1003  python3 plot_rates_multirun.py feb17_bimodal_15_60_test3 log bimodal_15_60_test3 bimodal3 2000
+ 1004  mv bimodal3.png bimodal_15_60_3runs.png
+ 1005  python3 plot_rates_multirun.py feb17_bimodal_15_60_scan1 log bimodal_15_60_scan1 bimodal_15_60_scan1 2000
+ 1006  python3 plot_rates_multirun.py feb17_bimodal_13_130_scan1 log bimodal_13_130_scan1 bimodal_13_130_scan1 2000
+ 1007  python3 plot_rates_multirun.py feb17_bimodal_13_130_scan1 log bimodal_13_130_scan1 bimodal_13_130_scan1 4000
+ 1008  python3 plot_rates_multirun.py feb17_bimodal_15_60_scan1 log bimodal_15_60_scan1 bimodal_15_60_scan1 2000
+ 1009  python3 plot_delta_multirun.py feb17_diffdelta_0to4 35k diffdelta_0to4 diffdelta_0to4_35k  2000
+ 1010  python3 plot_delta_multirun.py feb18_diffdelta_0to4 35k diffdelta_0to4 diffdelta_0to4_35k  2000
+ 1011  python3 plot_delta_multirun.py feb18_diffdelta_0to4 33k diffdelta_0to4 diffdelta_0to4_33k  2000
+ 1012  python3 plot_delta_multirun.py feb18_diffdelta_0to4 30k diffdelta_0to4 diffdelta_0to4_30k 1000
+ 1013* python3 plot_delta_multirun.py feb18_diffdelta_0to4 28k diffdelta_0to4 diffdelta_0to4_28k 1000
+ 1014  python3 plot_delta_multirun.py feb18_diffdelta_0to4 30k diffdelta_0to4 diffdelta_0to4_30k 500
+ 1015  python3 plot_delta_multirun.py feb18_diffdelta_0to4 28k diffdelta_0to4 diffdelta_0to4_28k 500
+ 1016  python3 plot_delta_multirun.py feb18_diffdelta_0to4 25k diffdelta_0to4 diffdelta_0to4_25k 500
