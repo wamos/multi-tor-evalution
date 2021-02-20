@@ -349,6 +349,8 @@ struct req_qd_log {
 //ST: log the load information every request sees
 #define LOAD_COUNTER_LOG 1
 
+//ST:piggyback counter
+extern rte_atomic16_t request_counter;
 extern volatile uint32_t rx_ts_index;
 extern struct timespec* rx_timestamps;
 extern FILE* rx_ts_fp;

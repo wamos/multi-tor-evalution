@@ -366,6 +366,9 @@ pkt_burst_redirection(struct fwd_stream *fs){
 			printf("req_id:%" PRIu32 ",msgtype:%" PRIu8 "\n", h.alt->request_id, msgtype);
 			#endif
 			if(msgtype == SINGLE_PKT_REQ){
+				//ST:piggyback counter
+				rte_atomic16_inc(&request_counter);
+				rte_smp_mb();
 
 				#if FORWARD_LATENCY_LOG==1
 				gossip_rx_samples[gossip_rx_array_index].switch_index = (uint16_t) fs->rx_queue;
@@ -565,6 +568,10 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 				// #endif				
 			}
 			else if(msgtype == SINGLE_PKT_REQ_PASSTHROUGH){
+				//ST:piggyback counter
+				rte_atomic16_inc(&request_counter);
+				rte_smp_mb();
+
 				#if REQ_TIMESTAMP_LOG==1
 				rx_timestamps[rx_ts_index] = ts1;
 				rx_ts_index++;
@@ -784,10 +791,11 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 					// #endif
 					load = (uint64_t) h.alt->host_queue_depth[host_index];
 					//int ret = rte_hash_add_key_data(fs->ip2load_table, (void*) &ip_service_key, (void *)((uintptr_t) &load));
-					int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
-					uint64_t* ptr = (uint64_t*) lookup_result;
-					*ptr = load;
-					rte_hash_add_key_data(fs->ip2load_table, (void*) &ip_service_key, (void *) ptr);
+					int ret = rte_hash_inplace_update_data_with_key(fs->ip2load_table, (void*) &ip_service_key, &load);
+					//int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
+					//uint64_t* ptr = (uint64_t*) lookup_result;
+					//*ptr = load;
+					//rte_hash_add_key_data(fs->ip2load_table, (void*) &ip_service_key, (void *) ptr);
 					hash_ret += ret;
 				}
 

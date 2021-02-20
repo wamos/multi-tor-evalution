@@ -453,7 +453,21 @@ pkt_burst_transmit(struct fwd_stream *fs)
 
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	sleep_ts1=ts1;
-	realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	//ST:piggyback counter
+	int16_t counter_value = rte_atomic16_read(&request_counter);
+	if(counter_value > 0){
+		// ST: why do we clear but not decrement the counter
+		// if counter_value > 1, 
+		// which means there are multiple requests passed 
+		// through during a load info tx operation.
+		// But we can't do better than that and sending counter_value times of 
+		// identical updates makes no sense
+		// therefore, we clear out the counters here.
+		rte_atomic16_clear(&request_counter);
+		rte_smp_mb();
+	}
+	else
+		realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
 
 	// struct rte_eth_burst_mode mode;
 	// rte_eth_rx_burst_mode_get(fs->rx_port, fs->rx_queue, &mode);

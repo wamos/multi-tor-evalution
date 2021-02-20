@@ -182,6 +182,8 @@ uint32_t req_qd_array_index = 0;
 uint64_t gossip_period = 100;
 uint64_t load_delta = 1;
 uint8_t redirect_bound = 1;
+//ST:piggyback counter
+rte_atomic16_t request_counter;
 
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
@@ -2113,6 +2115,10 @@ init_config(void)
 	//simple_fwd_config_setup();
 	//rss_fwd_config_setup();
 	replica_selection_fwd_config_setup();
+
+	//ST:piggyback counter
+	rte_atomic16_init(&request_counter);
+	rte_atomic16_clear(&request_counter);
 
 	/* create a gro context for each lcore */
 	gro_param.gro_types = RTE_GRO_TCP_IPV4;
