@@ -9,16 +9,16 @@ delta="1"
 redirection="1"
 
 #method_list=("fixed-dest" "random-only" "power-of-2" "random-select")
-method_list=("random-only" "random-select")
-#method_list=("random-only")
+#method_list=("random-select")
+method_list=("random-select" "random-only")
 
 #coarse_rate_list=(10000 15000)
 #coarse_rate_list=(20000 25000 30000 35000)
-run_list=(0 1 2 3 4 5 6 7 8 9)
+run_list=(0 1 2)
 #coarse_rate_list=(30000 31000 32000 33000 34000 35000)
 #coarse_rate_list=(35000 33000 30000 28000 25000 23000 20000)
+coarse_rate_list=(28000 25000 23000 20000)
 #coarse_rate_list=(34000 32000 31000 29000 27000 26000 24000 22000 21000)
-coarse_rate_list=(35000 34000 33000 32000 31000 30000 29000 28000 27000 26000 25000 24000 23000 22000 21000 20000)
 
 zoomin_rate_list=(20000 21000 22000 23000 24000
         25000 26000 27000 28000 29000 30000
@@ -80,8 +80,8 @@ touch setup.txt
 # done
 #echo "bimodal prob 0.8 15us, prob 0.2 60us, mean service time = 24us" | tee -a setup.txt 
 echo "exp mean service time= 25us" | tee -a setup.txt 
+echo "piggyback with request rates" | tee -a setup.txt
 echo "fixed load_delta:"${load_delta} | tee -a setup.txt    
-echo "fixed gossip values:"${gossip} | tee -a setup.txt
 echo "fixed redirection:"${redirection} | tee -a setup.txt
 # cd ../plotting
 # python3 plot_pctl.py ${LOGDIR_NAME} log log ${EXP_NAME}_pctl

@@ -38,7 +38,7 @@ if [ -f sw_${INDEX}.log ]; then
 fi
 
 echo "run dpdk-switch-" ${INDEX} on ${IP_ADDR}
-sudo ./build/app/testpmd -l 0-5 -n 4 -- -a --portmask=0x1 --nb-cores=5 --forward-mode=${FWD_MODE} --enable-info-exchange \
+sudo ./build/app/testpmd -l 0-7 -n 4 -- -a --portmask=0x1 --nb-cores=7 --forward-mode=${FWD_MODE} --enable-info-exchange \
     --switch-logfile=${LOGFILE}"_s"${INDEX}_${LAMBDA} --load-delta=${LOAD_DELTA} --gossip-period=${GOSSIP} --redirect_bound=${REDIRECT_BOUND}
 
 # if [[ "$FWD_MODE" == "5tswap" ]]; then

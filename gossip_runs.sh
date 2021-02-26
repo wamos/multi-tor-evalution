@@ -2,7 +2,8 @@ EXP_NAME=$1
 
 #https://serverfault.com/questions/477503/check-if-array-is-empty-in-bash/477506
 #gossip="25"
-gossip_period_list=(25 50 100 200 400 800)
+#gossip_period_list=(25 50 100 200 400 800)
+gossip_period_list=(200)
 #gossip_period_list=(25 50 100 200 400 800)
 #load_delta_list=(1 2 3 4 5 6 7 8 9 10)
 #TODO redireciont bound list
@@ -19,11 +20,11 @@ method="random-select"
 #coarse_rate_list=(20000 25000 30000 35000)
 #coarse_rate_list=(30000 31000 32000 33000 34000)
 #coarse_rate_list=(30000 31000 32000 33000 34000 35000)
-#run_list=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24)
-run_list=(0 1 2 3 4 5 6 7 8 9)
+run_list=(0 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24)
+#run_list=(0 1 2 3 4 5 6 7 8 9)
 #coarse_rate_list=(20000 23000 25000 28000 30000 33000 35000)
 #upper half first 
-coarse_rate_list=(30000)
+coarse_rate_list=(35000)
 
 zoomin_rate_list=(20000 21000 22000 23000 24000
         25000 26000 27000 28000 29000 30000
