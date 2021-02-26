@@ -28,9 +28,15 @@ for root, subdirs, files in os.walk(working_dir):
 
 #rate = title_filter1
 client_tick = ["c0", "c1" , "c2"]
-method_tick  = [title_filter2+"_randonly", title_filter2+"_randselect"]
-method_array = ["random", "replica-select with gossip=25us, redirction=1"]
-run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
+#method_tick  = [title_filter2+"_randonly", title_filter2+"_randselect"]
+#method_array = ["random", "replica-select with gossip=25us, redirction=1"]
+
+method_tick  = [title_filter2+"_randonly"]
+method_array = ["random"]
+#method_array = ["replica-select with gossip=25us, redirction=1"]
+
+run_tick=["0", "2", "3", "4", "5", "6", "7", "9"]
+#run_tick=["0", "1", "2"]
 
 #method_array = ["random", "replica-select min load delta=1"]
 #method_tick  = ["qd_random", "delta2_randselect", "delta3_randselect", "delta4_randselect"]
@@ -41,8 +47,11 @@ run_tick=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"]
 
 # rate_tick =[ "10k", "15k", "20k", "25k", "30k", "35k"]
 # rate_array =[ "10000", "15000", "20000", "25000", "30000", "35000"]
-rate_tick =[ "20k", "23k", "25k", "28k", "30k", "33k", "35k"]
+#rate_tick =[ "20k", "23k", "25k", "28k", "30k", "33k"]
+#rate_tick =[ "20k", "23k", "25k", "28k", "30k", "33k"]
+rate_tick =[ "20k", "21k", "22k", "23k", "24k", "25k", "26k", "27k", "28k", "29k", "30k", "31k", "32k", "33k", "34k", "35k"]
 #rate_tick =[ "30k", "35k", "40k", "45k", "50k", "55k"]
+#rate_tick =[ "30k", "33k"]
 
 # rate_array =[ "20000", "25000", "30000"]
 
@@ -93,20 +102,29 @@ for method in method_tick:
             filename_prefix = method_tick[method_index] + "_run" + run
             print(filename_prefix)
 
-            filename0 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[0] + "_" + rate + "." + extension
-            filename1 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[1] + "_" + rate + "." + extension
-            filename2 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[2] + "_" + rate + "." + extension
+            if rate == "35k" and run == "9":
+                filename0 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[0] + "_" + rate + "." + extension
+                filename1 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[1] + "_" + rate + "." + extension
+                filename2 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[2] + "_" + rate + "." + extension
+                data0 = pd.read_csv(filename0, delimiter = ",", usecols=[1]).values
+                data2 = pd.read_csv(filename2, delimiter = ",", usecols=[1]).values
+                data = np.concatenate([data0, data1, data2])
 
-            ## normal cases
-            ## column 0, column 1, column 2
-            ## number of redirections, end-to-end latency, server processing latency
-            data0 = pd.read_csv(filename0, delimiter = ",", usecols=[1]).values
-            data1 = pd.read_csv(filename1, delimiter = ",", usecols=[1]).values
-            data2 = pd.read_csv(filename2, delimiter = ",", usecols=[1]).values
-            data0 = data0[10:]
-            data1 = data1[10:]
-            data2 = data2[10:]
-            data = np.concatenate([data0, data1, data2])
+            else:
+                filename0 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[0] + "_" + rate + "." + extension
+                filename1 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[1] + "_" + rate + "." + extension
+                filename2 = parent_dir + working_dir + "/"+ filename_prefix + "_"+ client_tick[2] + "_" + rate + "." + extension
+
+                ## normal cases
+                ## column 0, column 1, column 2
+                ## number of redirections, end-to-end latency, server processing latency
+                data0 = pd.read_csv(filename0, delimiter = ",", usecols=[1]).values
+                data1 = pd.read_csv(filename1, delimiter = ",", usecols=[1]).values
+                data2 = pd.read_csv(filename2, delimiter = ",", usecols=[1]).values
+                data0 = data0[10:]
+                data1 = data1[10:]
+                data2 = data2[10:]
+                data = np.concatenate([data0, data1, data2])
 
             # for server latency
             #data = data[data > 25*1000]
@@ -163,30 +181,54 @@ for method in method_tick:
         
         rate_index = rate_index + 1 
 
+    print("[", end =" ")
     for i in range(0,len(mean_per_delta_mean_array)):
-        print(mean_per_delta_mean_array[i], end=" ")
-    print("\n-----------------------")
+        print(mean_per_delta_mean_array[i], end=",")
+    print("]\n")
+
+    print("[", end =" ")
+    for i in range(0,len(mean_per_delta_sem_array)):
+        print(mean_per_delta_sem_array[i], end =",")
+    print("]\n")
 
     ax.errorbar(rate_tick, mean_per_delta_mean_array, yerr=mean_per_delta_sem_array,color=color_list[method_index], linestyle='solid',
         label=method_array[method_index]+":50th pct", marker='.', lw=1.5)
 
+    print("[", end =" ")
     for i in range(0,len(pct95th_per_delta_mean_array)):
-        print(pct95th_per_delta_mean_array[i], end =" ")
-    print("\n-----------------------")
+        print(pct95th_per_delta_mean_array[i], end =",")
+    print("]\n")
+
+    print("[", end =" ")
+    for i in range(0,len(pct95th_per_delta_sem_array)):
+        print(pct95th_per_delta_sem_array[i], end =",")
+    print("]\n")
 
     ax.errorbar(rate_tick, pct95th_per_delta_mean_array, yerr=pct95th_per_delta_sem_array ,color=color_list[method_index], linestyle='dashed',
         label=method_array[method_index]+":95th pct", marker='.', lw=1.5)
 
+    print("[", end =" ")
     for i in range(0,len(pct99th_per_delta_mean_array)):
-        print(pct99th_per_delta_mean_array[i], end =" ")
-    print("\n-----------------------")
+        print(pct99th_per_delta_mean_array[i], end =",")
+    print("]\n")
+
+    print("[", end =" ")
+    for i in range(0,len(pct99th_per_delta_sem_array)):
+        print(pct99th_per_delta_sem_array[i], end =",")
+    print("]\n")
 
     ax.errorbar(rate_tick, pct99th_per_delta_mean_array, yerr=pct99th_per_delta_sem_array ,color=color_list[method_index], linestyle='dotted',
         label=method_array[method_index]+":99th pct", marker='.', lw=1.5)
 
+    print("[", end =" ")
     for i in range(0,len(pct99th9_per_delta_mean_array)):
-        print(pct99th9_per_delta_mean_array[i], end =" ")
-    print("\n-----------------------")
+        print(pct99th9_per_delta_mean_array[i], end =",")
+    print("]\n")
+
+    print("[", end =" ")
+    for i in range(0,len(pct99th9_per_delta_sem_array)):
+        print(pct99th9_per_delta_sem_array[i], end =",")
+    print("]\n")
 
     ax.errorbar(rate_tick, pct99th9_per_delta_mean_array, yerr=pct99th9_per_delta_sem_array ,color=color_list[method_index], linestyle='dashdot',
         label=method_array[method_index]+":99.9th pct", marker='.', lw=1.5)

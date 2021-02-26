@@ -169,31 +169,54 @@ for delta in delta_tick:
     
     delat_index = delat_index + 1 
 
-
+print("[", end =" ")
 for i in range(0,len(mean_per_delta_mean_array)):
-    print(mean_per_delta_mean_array[i], end =" ")
-print("\n-----------------------")
+    print(mean_per_delta_mean_array[i], end =",")
+print("]")
+
+print("[", end =" ")
+for i in range(0,len(mean_per_delta_sem_array)):
+    print(mean_per_delta_sem_array[i], end =",")
+print("]")
 
 ax.errorbar(delta_tick, mean_per_delta_mean_array, yerr=mean_per_delta_sem_array,color=color_list[method_index], linestyle='solid',
     label=method_array[method_index]+":50th pct", marker='.', lw=1.5)
 
+print("[", end =" ")
 for i in range(0,len(pct95th_per_delta_mean_array)):
-    print(pct95th_per_delta_mean_array[i], end =" ")
-print("\n-----------------------")
+    print(pct95th_per_delta_mean_array[i], end =",")
+print("]")
+
+print("[", end =" ")
+for i in range(0,len(pct95th_per_delta_sem_array)):
+    print(pct95th_per_delta_sem_array[i], end =",")
+print("]")
 
 ax.errorbar(delta_tick, pct95th_per_delta_mean_array, yerr=pct95th_per_delta_sem_array ,color=color_list[method_index], linestyle='dashed',
     label=method_array[method_index]+":95th pct", marker='.', lw=1.5)
 
+print("[", end =" ")
 for i in range(0,len(pct99th_per_delta_mean_array)):
-    print(pct99th_per_delta_mean_array[i], end =" ")
-print("\n-----------------------")
+    print(pct99th_per_delta_mean_array[i], end =",")
+print("]")
+
+print("[", end =" ")
+for i in range(0,len(pct99th_per_delta_sem_array)):
+    print(pct99th_per_delta_sem_array[i], end =",")
+print("]")
 
 ax.errorbar(delta_tick, pct99th_per_delta_mean_array, yerr=pct99th_per_delta_sem_array ,color=color_list[method_index], linestyle='dotted',
     label=method_array[method_index]+":99th pct", marker='.', lw=1.5)
 
+print("[", end =" ")
 for i in range(0,len(pct99th9_per_delta_mean_array)):
-    print(pct99th9_per_delta_mean_array[i], end =" ")
-print("\n-----------------------")
+    print(pct99th9_per_delta_mean_array[i], end =",")
+print("]")
+
+print("[", end =" ")
+for i in range(0,len(pct99th9_per_delta_sem_array)):
+    print(pct99th9_per_delta_sem_array[i], end =",")
+print("]")
 
 ax.errorbar(delta_tick, pct99th9_per_delta_mean_array, yerr=pct99th9_per_delta_sem_array ,color=color_list[method_index], linestyle='dashdot',
     label=method_array[method_index]+":99.9th pct", marker='.', lw=1.5)
