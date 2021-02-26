@@ -574,6 +574,7 @@ int parse_switch_logfile(const char *expname){
 	const char req_qd_type[] = ".qd";
 	const char tor_rx_ts_type[] = ".trxts";
 	const char tor_tx_ts_type[] = ".ttxts";
+	const char tor_pgy_ts_type[] = ".pgy";
 	char logfilename[100];
 
 	#if FORWARD_LATENCY_LOG==1
@@ -608,6 +609,15 @@ int parse_switch_logfile(const char *expname){
 	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_tx_ts_type), "%s%s%s", log_prefix, expname, tor_tx_ts_type);
 	tx_ts_fp = fopen(logfilename, "w+");
     if(tx_ts_fp == NULL){
+       return -1;
+    }
+	#endif
+
+	#if PIGGYBACK_LOG==1
+	// log file for tx_timestamps servers->swithc tx timestamp ->clients
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_pgy_ts_type), "%s%s%s", log_prefix, expname, tor_pgy_ts_type);
+	pgy_ts_fp = fopen(logfilename, "w+");
+    if(pgy_ts_fp == NULL){
        return -1;
     }
 	#endif

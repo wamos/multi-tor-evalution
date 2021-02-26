@@ -338,6 +338,13 @@ struct req_qd_log {
 	uint16_t remote_load_array[2];
 };
 
+//ST: req rx/piggyback load info tx log
+struct piggy_tx_log{
+	//req has -1 value, while load info has >=0 values
+	int16_t req_counter_value; 
+	struct timespec ts;
+};
+
 /***
 * Our own logging system
 ***/
@@ -348,7 +355,12 @@ struct req_qd_log {
 #define FORWARD_LATENCY_LOG 0
 //ST: log the load information every request sees
 #define LOAD_COUNTER_LOG 1
+//ST: piggyback logging
+#define PIGGYBACK_LOG 1
 
+extern struct piggy_tx_log* piggyback_samples;
+extern volatile uint32_t piggyback_index;
+extern FILE* pgy_ts_fp;
 //ST:piggyback counter
 extern rte_atomic16_t request_counter;
 extern volatile uint32_t rx_ts_index;

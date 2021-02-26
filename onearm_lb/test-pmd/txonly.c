@@ -137,7 +137,7 @@ copy_buf_to_pkt(void* buf, unsigned len, struct rte_mbuf *pkt, unsigned offset)
 	copy_buf_to_pkt_segs(buf, len, pkt, offset);
 }
 
-static void
+static inline void
 setup_pkt_udp_ip_headers(struct rte_ipv4_hdr *ip_hdr,
 			 struct rte_udp_hdr *udp_hdr,
 			 uint16_t pkt_data_len)
@@ -454,20 +454,25 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	clock_gettime(CLOCK_REALTIME, &ts1);
 	sleep_ts1=ts1;
 	//ST:piggyback counter
-	int16_t counter_value = rte_atomic16_read(&request_counter);
-	if(counter_value > 0){
-		// ST: why do we clear but not decrement the counter
-		// if counter_value > 1, 
-		// which means there are multiple requests passed 
-		// through during a load info tx operation.
-		// But we can't do better than that and sending counter_value times of 
-		// identical updates makes no sense
-		// therefore, we clear out the counters here.
+	int16_t counter_value = rte_atomic16_read(&request_counter);	
+	if(counter_value >= 32){
+		#if PIGGYBACK_LOG==1
+		piggyback_index = piggyback_index + 1;
+		piggyback_samples[piggyback_index].req_counter_value = counter_value;
+		piggyback_samples[piggyback_index].ts = ts1;
+		#endif
+		// ST: why do we clear but not decrement the counter?
+		// if counter_value > 1, multiple requests have arrived 
+		// and left during a load update operation.
+		// But we can't do better/faster than that to send load info.
+		// Sending counter_value times of identical updates makes no sense.
+		// Therefore, we clear out the counters and send NUM_RACKS load update packets
+		// to other swtiches
 		rte_atomic16_clear(&request_counter);
 		rte_smp_mb();
 	}
-	else
-		realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	//else // do gossip if there's no reuqest!  
+	//	realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
 
 	// struct rte_eth_burst_mode mode;
 	// rte_eth_rx_burst_mode_get(fs->rx_port, fs->rx_queue, &mode);

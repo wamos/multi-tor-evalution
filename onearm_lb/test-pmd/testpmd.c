@@ -184,6 +184,9 @@ uint64_t load_delta = 1;
 uint8_t redirect_bound = 1;
 //ST:piggyback counter
 rte_atomic16_t request_counter;
+struct piggy_tx_log* piggyback_samples = NULL;
+volatile uint32_t piggyback_index = 0;
+FILE* pgy_ts_fp = NULL;
 
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
@@ -1616,6 +1619,13 @@ init_hashtable(void){
 	tx_timestamps = rte_zmalloc("tx_timestamps", sizeof(struct timespec)*120*40000, 0);
 	if(tx_timestamps == NULL){
 		rte_panic("tx_timestamps malloc failure\n");
+	}
+	#endif
+
+	#if PIGGYBACK_LOG==1 
+	piggyback_samples = rte_zmalloc("piggyback_samples", sizeof(struct piggy_tx_log)*120*40000, 0);
+	if(piggyback_samples == NULL){
+		rte_panic("piggyback_samples malloc failure\n");
 	}
 	#endif
 
@@ -3668,6 +3678,20 @@ pmd_test_exit(void)
 	}
 	fclose(tx_ts_fp);
 	rte_free(tx_timestamps);
+	#endif
+
+	//dump piggyback log
+	#if PIGGYBACK_LOG==1
+	printf("Dump piggyback logs\n");
+	printf("piggyback_index:%"PRIu32 "\n", piggyback_index);
+	if(piggyback_index >= 1){
+		for(uint32_t index = 1; index < piggyback_index; index++){
+			fprintf(pgy_ts_fp, "%"PRId16",%" PRId64 ",%" PRId64 "\n", piggyback_samples[index].req_counter_value,
+				piggyback_samples[index].ts.tv_sec, piggyback_samples[index].ts.tv_nsec);
+		}
+	}
+	fclose(pgy_ts_fp);
+	rte_free(piggyback_samples);
 	#endif
 
 	printf("\nBye...\n");
