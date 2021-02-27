@@ -694,6 +694,7 @@ launch_args_parse(int argc, char** argv)
 		{ "switch-logfile",         1, 0, 0}, // ST: put our options here
 		{ "enable-info-exchange",      0, 0, 0}, // ST: put our options here
 		{ "enable-replica-selection",        0, 0, 0},
+		{ "gossip-load-threshold", 1, 0, 0}, //ST: gossip_load_threshold
 		{ "disable-rss",                0, 0, 0 },
 		{ "port-topology",              1, 0, 0 },
 		{ "forward-mode",               1, 0, 0 },
@@ -1120,6 +1121,20 @@ launch_args_parse(int argc, char** argv)
 				}
 				else{
 					rte_exit(EXIT_FAILURE, "invalid gossip-period %d"
+						  "for dpdk-switch\n", n);
+				}
+			}
+
+			if (!strcmp(lgopts[opt_idx].name, "gossip-load-threshold")) {
+				n = atoi(optarg);
+				if (n >=0){
+					gossip_load_threshold = (int16_t) n;
+					logarithmic_threshold = gossip_load_threshold;
+					ewma_threshold = gossip_load_threshold;
+					printf("gossip_load_threshold:%" PRIu64 "\n", gossip_load_threshold);
+				}
+				else{
+					rte_exit(EXIT_FAILURE, "invalid gossip_load_threshold %d"
 						  "for dpdk-switch\n", n);
 				}
 			}	

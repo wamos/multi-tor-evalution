@@ -406,8 +406,6 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	if (nb_pkt == 0)
 		return;
 
-	nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, local_nb_pkt_per_burst);
-
 	/*
 	 * Retry if necessary
 	 */
@@ -440,26 +438,26 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		} while (++nb_tx < nb_pkt);
 	}
 
-	// 1 (X) 2 (X) 3 (X) 4 (V) for vector sse -> mlx5_rx_burst_vec
-	// 1 (V) for scalar -> mlx5_rx_burst
-	// int nb_rx = rte_eth_rx_burst(fs->rx_port, fs->rx_queue, recv_burst, 4); 
-	// if(nb_rx > 0){
-	// 	printf("rte_eth_rx_burst rx %" PRIu16 " pkt\n", nb_rx);
-	// }
-
-	// fs->rx_packets += nb_rx;
-	// for (int i = 0; i < nb_rx; i++)
-	// 	rte_pktmbuf_free(recv_burst[i]);
-
-	clock_gettime(CLOCK_REALTIME, &ts1);
-	sleep_ts1=ts1;
 	//ST:piggyback counter
 	int16_t counter_value = rte_atomic16_read(&request_counter);	
-	if(counter_value >= 32){
+
+	#if fixed_period_gossip==1
+	realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	#endif
+
+	//fixed-nth solution
+	#if fixed_request_gossip==1
+	// while(counter_value < gossip_load_threshold){ // polling while-loop
+	// 	counter_value = rte_atomic16_read(&request_counter);
+	// }		
+	if(counter_value >= gossip_load_threshold){
+		nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, local_nb_pkt_per_burst);
+		clock_gettime(CLOCK_REALTIME, &ts1);
+		sleep_ts1=ts1;
 		#if PIGGYBACK_LOG==1
 		piggyback_index = piggyback_index + 1;
 		piggyback_samples[piggyback_index].req_counter_value = counter_value;
-		piggyback_samples[piggyback_index].ts = ts1;
+		piggyback_samples[piggyback_index].req_qd_array_index = rte_atomic64_read(req_qd_array_index);
 		#endif
 		// ST: why do we clear but not decrement the counter?
 		// if counter_value > 1, multiple requests have arrived 
@@ -471,8 +469,43 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		rte_atomic16_clear(&request_counter);
 		rte_smp_mb();
 	}
-	//else // do gossip if there's no reuqest!  
-	//	realnanosleep(gossip_period*1000, &sleep_ts1, &sleep_ts2); // 5 us
+	#endif
+
+	#if logarithmic_thresholds_gossip==1
+	// pkt_alt_hdr already has service_id_list, host_ip_list, and host_queue_depth
+	// If any of the server has a load >= logarithmic_threshold
+	// we sent it out!
+	uint8_t send_flag = 0;
+	for(uint32_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
+		if(pkt_alt_hdr.host_queue_depth[host_index] >= logarithmic_threshold
+			&& logarithmic_threshold < INT16_MAX){ // don't want to see int16_t overflowed
+			logarithmic_threshold = logarithmic_threshold * 2;
+			send_flag = 1;
+			break;
+		}
+
+		if(pkt_alt_hdr.host_queue_depth[host_index] < logarithmic_threshold/2 
+			&& logarithmic_threshold/2 >= gossip_load_threshold){
+			logarithmic_threshold = logarithmic_threshold/2;
+		}		
+	}
+
+	if(send_flag){
+		nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, local_nb_pkt_per_burst);
+		clock_gettime(CLOCK_REALTIME, &ts1);
+		sleep_ts1=ts1;
+		#if PIGGYBACK_LOG==1
+		piggyback_index = piggyback_index + 1;
+		piggyback_samples[piggyback_index].req_counter_value = counter_value;
+		piggyback_samples[piggyback_index].req_qd_array_index = rte_atomic64_read(req_qd_array_index);
+		#endif
+		rte_atomic16_clear(&request_counter);
+		rte_smp_mb();
+	}
+	#endif
+
+	#if EWMA_thresholds_gossip==1
+	#endif
 
 	// struct rte_eth_burst_mode mode;
 	// rte_eth_rx_burst_mode_get(fs->rx_port, fs->rx_queue, &mode);

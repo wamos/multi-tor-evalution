@@ -446,7 +446,8 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				#if LOAD_COUNTER_LOG==1
 				req_qd_samples[req_qd_array_index].local_load = local_load;
 				//req_qd_samples[req_qd_array_index].remote_min_load = remote_min_load;
-				req_qd_array_index++;
+				//req_qd_array_index++;
+				rte_atomic64_inc(&req_qd_array_index);
 				#endif
 
 				h.alt->req_ts_sec = ts1.tv_sec;
@@ -629,7 +630,8 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 					#endif
 				}
 				#if LOAD_COUNTER_LOG==1
-				req_qd_array_index++;
+				rte_atomic64_inc(&req_qd_array_index);
+				//req_qd_array_index++;
 				#endif
 								
 				//[load++,load--]: increment ip2load table's load for ipv4_header->dst_addr

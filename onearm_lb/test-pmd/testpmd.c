@@ -177,7 +177,8 @@ FILE* req_qd_logfp = NULL;
 struct gossip_rx_log* gossip_rx_samples = NULL;
 struct req_qd_log* req_qd_samples = NULL;
 uint32_t gossip_rx_array_index = 0;
-uint32_t req_qd_array_index = 0;
+//uint32_t req_qd_array_index = 0;
+rte_atomic64_t req_qd_array_index;
 //default setup:
 uint64_t gossip_period = 100;
 uint64_t load_delta = 1;
@@ -187,6 +188,8 @@ rte_atomic16_t request_counter;
 struct piggy_tx_log* piggyback_samples = NULL;
 volatile uint32_t piggyback_index = 0;
 FILE* pgy_ts_fp = NULL;
+int16_t gossip_load_threshold = 0;
+int16_t logarithmic_threshold = 0;
 
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
@@ -2129,6 +2132,8 @@ init_config(void)
 	//ST:piggyback counter
 	rte_atomic16_init(&request_counter);
 	rte_atomic16_clear(&request_counter);
+	rte_atomic64_init(req_qd_array_index);
+	rte_atomic64_clear(req_qd_array_index);
 
 	/* create a gro context for each lcore */
 	gro_param.gro_types = RTE_GRO_TCP_IPV4;
@@ -3640,9 +3645,10 @@ pmd_test_exit(void)
 
 	#if LOAD_COUNTER_LOG==1
 	printf("Dump req_qd_samples\n");
-	printf("req_qd_array_index:%"PRIu32 "\n", req_qd_array_index);
-	if(req_qd_array_index >= 1){
-		for(uint32_t index = 1; index < req_qd_array_index; index++){
+	uint32_t readable_req_array_index = (uint32_t) rte_atomic64_read(req_qd_array_index);
+	printf("req_qd_array_index:%"PRIu32 "\n", readable_req_array_index);
+	if(readable_req_array_index >= 1){
+		for(uint32_t index = 1; index < readable_req_array_index; index++){
 			//fprintf(req_qd_logfp, "%" PRIu16 ",%" PRIu16 "\n", 
 				//req_qd_samples[index].local_load, req_qd_samples[index].remote_min_load);
 			fprintf(req_qd_logfp, "%" PRIu16 ",%" PRIu16 ",%" PRIu16 "\n",
@@ -3685,9 +3691,13 @@ pmd_test_exit(void)
 	printf("Dump piggyback logs\n");
 	printf("piggyback_index:%"PRIu32 "\n", piggyback_index);
 	if(piggyback_index >= 1){
+		// for(uint32_t index = 1; index < piggyback_index; index++){
+		// 	fprintf(pgy_ts_fp, "%"PRId16",%" PRId64 ",%" PRId64 "\n", piggyback_samples[index].req_counter_value,
+		// 		piggyback_samples[index].ts.tv_sec, piggyback_samples[index].ts.tv_nsec);
+		// }
 		for(uint32_t index = 1; index < piggyback_index; index++){
-			fprintf(pgy_ts_fp, "%"PRId16",%" PRId64 ",%" PRId64 "\n", piggyback_samples[index].req_counter_value,
-				piggyback_samples[index].ts.tv_sec, piggyback_samples[index].ts.tv_nsec);
+			fprintf(pgy_ts_fp, "%"PRId64",%" PRId16 "\n", piggyback_samples[index].req_qd_array_index,
+			piggyback_samples[index].req_counter_value);
 		}
 	}
 	fclose(pgy_ts_fp);
