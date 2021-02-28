@@ -402,6 +402,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				uint64_t current_load;
 				uint16_t min_index = 0;
 				uint16_t remote_index = 0;
+				uint32_t readable_req_array_index = (uint32_t) rte_atomic64_read(&req_qd_array_index);
 				for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
 					ip_service_key.ip_dst = h.alt->replica_dst_list[host_index];
 					ip_service_key.service_id = h.alt->service_id;
@@ -418,14 +419,14 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					if(ret >= 0){
 						current_load = *ptr; 
 						#if LOAD_COUNTER_LOG==1
-						req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = *ptr;
+						req_qd_samples[readable_req_array_index].remote_load_array[remote_index] = *ptr;
 						remote_index++;
 						#endif
 					}
 					else{
 						current_load = UINT64_MAX;
 						#if LOAD_COUNTER_LOG==1
-						req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = UINT64_MAX;						
+						req_qd_samples[readable_req_array_index].remote_load_array[remote_index] = UINT64_MAX;						
 						remote_index++;
 						#endif
 					}
@@ -444,7 +445,7 @@ pkt_burst_redirection(struct fwd_stream *fs){
 				uint32_t dest_addr = h.alt->replica_dst_list[min_index];
 
 				#if LOAD_COUNTER_LOG==1
-				req_qd_samples[req_qd_array_index].local_load = local_load;
+				req_qd_samples[readable_req_array_index].local_load = local_load;
 				//req_qd_samples[req_qd_array_index].remote_min_load = remote_min_load;
 				//req_qd_array_index++;
 				rte_atomic64_inc(&req_qd_array_index);
@@ -609,6 +610,7 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 						printf("invalid parameters\n");
 				}
 
+				uint32_t readable_req_array_index = (uint32_t) rte_atomic64_read(&req_qd_array_index);
 				uint16_t remote_index = 0;
 				for(uint16_t host_index = 0; host_index < NUM_REPLICA; host_index++){
 					ip_service_key.ip_dst = h.alt->replica_dst_list[host_index];
@@ -620,10 +622,10 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 					#if LOAD_COUNTER_LOG==1
 					if(ret >= 0){
 						if(ip_service_key.ip_dst == h.alt->alt_dst_ip){
-							req_qd_samples[req_qd_array_index].local_load = *ptr;
+							req_qd_samples[readable_req_array_index].local_load = *ptr;
 						}
 						else{ 
-							req_qd_samples[req_qd_array_index].remote_load_array[remote_index] = *ptr;
+							req_qd_samples[readable_req_array_index].remote_load_array[remote_index] = *ptr;
 							remote_index++;
 						}
 					}
@@ -638,7 +640,7 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 				ip_service_key.service_id = h.alt->service_id;
 				ip_service_key.ip_dst = ipv4_header->dst_addr;
 				ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_key, &lookup_result);
-				if(ret >= 0){
+				if(likely(ret >= 0)){
 					uint64_t* ptr = (uint64_t*) lookup_result;
 					//*ptr = *ptr + 1;
 					//rte_hash_add_key_data(fs->ip2load_table, (void*) &ip_service_key, (void *) ptr);
@@ -652,6 +654,8 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 					//print_ip2load(ip_service_key.ip_dst, *ptr);
 				}
 				else{
+					print_ipaddr("req src", ipv4_header->src_addr);
+					print_ipaddr("req dst", ipv4_header->dst_addr);
 					printf("no dest ip found in ip2load table\n");
 				}
 
@@ -706,9 +710,9 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 				}
 				update_checksum(ipv4_header, udp_header); 
 
-				// printf("RESP req-id %" PRIu32 "\n", h.alt->request_id);
-				// print_ipaddr("RESP from-server src", feedback_src_addr);
-				// print_ipaddr("RESP from-switch dst", ipv4_header->dst_addr);
+				//printf("RESP req-id %" PRIu32 "\n", h.alt->request_id);
+				//print_ipaddr("RESP from-server src", feedback_src_addr);
+				//print_ipaddr("RESP from-switch dst", ipv4_header->dst_addr);
 
 				//[load++,load--]: decrement ip2load table's load for actual_src_addr												
 				// else{ 					
@@ -719,8 +723,12 @@ mac_lookup:		ret = rte_hash_lookup_data(fs->ip2mac_table, (void*) &ipv4_header->
 					uint64_t* ptr = (uint64_t*) lookup_result;
 				}
 				ret = rte_hash_decrement_data_with_key(fs->ip2load_table, (void*) &ip_service_key);
-				if(ret < 0)
-						printf("load-- failed\n");
+				if(unlikely(ret < 0)){
+					printf("load-- failed\n");
+					printf("RESP req-id %" PRIu32 "\n", h.alt->request_id);
+					print_ipaddr("RESP from-server src", feedback_src_addr);
+					print_ipaddr("RESP from-switch dst", ipv4_header->dst_addr);
+				}
 				// else{
 				// 	printf("load--\n");
 				// }

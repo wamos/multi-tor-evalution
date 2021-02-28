@@ -1125,20 +1125,6 @@ launch_args_parse(int argc, char** argv)
 				}
 			}
 
-			if (!strcmp(lgopts[opt_idx].name, "gossip-load-threshold")) {
-				n = atoi(optarg);
-				if (n >=0){
-					gossip_load_threshold = (int16_t) n;
-					logarithmic_threshold = gossip_load_threshold;
-					ewma_threshold = gossip_load_threshold;
-					printf("gossip_load_threshold:%" PRIu64 "\n", gossip_load_threshold);
-				}
-				else{
-					rte_exit(EXIT_FAILURE, "invalid gossip_load_threshold %d"
-						  "for dpdk-switch\n", n);
-				}
-			}	
-
 			//redirection_bound
 			if (!strcmp(lgopts[opt_idx].name, "redirect_bound")) {
 				n = atoi(optarg);
@@ -1147,6 +1133,20 @@ launch_args_parse(int argc, char** argv)
 				else
 					rte_exit(EXIT_FAILURE, "invalid redirect_bound %d"
 						  "for dpdk-client\n", n);
+			}
+
+			if (!strcmp(lgopts[opt_idx].name, "gossip-load-threshold")) {
+				n = atoi(optarg);
+				if (n >=0){
+					gossip_load_threshold = (int16_t) n;
+					logarithmic_threshold = gossip_load_threshold;
+					ewma_threshold = gossip_load_threshold;
+					printf("gossip_load_threshold:%" PRId16 "\n", gossip_load_threshold);
+				}
+				else{
+					rte_exit(EXIT_FAILURE, "invalid gossip_load_threshold %d"
+						  "for dpdk-switch\n", n);
+				}
 			}		
 			
 			if (!strcmp(lgopts[opt_idx].name, "switch-logfile"))

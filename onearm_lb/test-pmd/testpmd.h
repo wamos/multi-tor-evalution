@@ -340,8 +340,8 @@ struct req_qd_log {
 
 //ST: req rx/piggyback load info tx log
 struct piggy_tx_log{
-	//req has -1 value, while load info has >=0 values
 	int16_t req_counter_value; 
+	int16_t threshold_value;
 	int64_t req_qd_array_index;
 };
 
@@ -359,13 +359,14 @@ struct piggy_tx_log{
 #define PIGGYBACK_LOG 1
 //ST: gossip methods
 #define fixed_period_gossip 0
-#define fixed_request_gossip 1
-#define logarithmic_thresholds_gossip 0
+#define fixed_request_gossip 0
+#define logarithmic_thresholds_gossip 1
 #define EWMA_thresholds_gossip 0
 
 extern volatile int16_t gossip_load_threshold;
 extern volatile int16_t logarithmic_threshold;
 extern volatile int16_t ewma_threshold;
+extern volatile uint8_t run_flag;
 
 extern struct piggy_tx_log* piggyback_samples;
 extern volatile uint32_t piggyback_index;

@@ -188,8 +188,9 @@ rte_atomic16_t request_counter;
 struct piggy_tx_log* piggyback_samples = NULL;
 volatile uint32_t piggyback_index = 0;
 FILE* pgy_ts_fp = NULL;
-int16_t gossip_load_threshold = 0;
-int16_t logarithmic_threshold = 0;
+volatile int16_t gossip_load_threshold = 0;
+volatile int16_t logarithmic_threshold;
+volatile int16_t ewma_threshold;
 
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
@@ -320,6 +321,7 @@ uint16_t stats_period; /**< Period to show statistics (disabled by default) */
  * option. Set flag to exit stats period loop after received SIGINT/SIGTERM.
  */
 uint8_t f_quit;
+volatile uint8_t run_flag = 1;
 
 /*
  * Configuration of packet segments used by the "txonly" processing engine.
@@ -2119,6 +2121,7 @@ init_config(void)
 	}
 	//ST: we need to init hashtables here, then we can init fwd_stream which has pointers to hashtables
 	init_hashtable();
+	run_flag = 1;
 
 	/* Configuration of packet forwarding streams. */
 	if (init_fwd_streams() < 0)
@@ -2132,8 +2135,8 @@ init_config(void)
 	//ST:piggyback counter
 	rte_atomic16_init(&request_counter);
 	rte_atomic16_clear(&request_counter);
-	rte_atomic64_init(req_qd_array_index);
-	rte_atomic64_clear(req_qd_array_index);
+	rte_atomic64_init(&req_qd_array_index);
+	rte_atomic64_clear(&req_qd_array_index);
 
 	/* create a gro context for each lcore */
 	gro_param.gro_types = RTE_GRO_TCP_IPV4;
@@ -3645,7 +3648,7 @@ pmd_test_exit(void)
 
 	#if LOAD_COUNTER_LOG==1
 	printf("Dump req_qd_samples\n");
-	uint32_t readable_req_array_index = (uint32_t) rte_atomic64_read(req_qd_array_index);
+	uint32_t readable_req_array_index = (uint32_t) rte_atomic64_read(&req_qd_array_index);
 	printf("req_qd_array_index:%"PRIu32 "\n", readable_req_array_index);
 	if(readable_req_array_index >= 1){
 		for(uint32_t index = 1; index < readable_req_array_index; index++){
@@ -3696,7 +3699,9 @@ pmd_test_exit(void)
 		// 		piggyback_samples[index].ts.tv_sec, piggyback_samples[index].ts.tv_nsec);
 		// }
 		for(uint32_t index = 1; index < piggyback_index; index++){
-			fprintf(pgy_ts_fp, "%"PRId64",%" PRId16 "\n", piggyback_samples[index].req_qd_array_index,
+			fprintf(pgy_ts_fp, "%"PRId64",%" PRId16 ",%" PRId16 "\n", 
+			piggyback_samples[index].req_qd_array_index,
+			piggyback_samples[index].threshold_value,
 			piggyback_samples[index].req_counter_value);
 		}
 	}
@@ -4341,6 +4346,8 @@ init_port(void)
 static void
 force_quit(void)
 {
+	run_flag = 0;
+	rte_smp_mb();
 	pmd_test_exit();
 	prompt_exit();
 }
