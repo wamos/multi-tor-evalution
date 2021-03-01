@@ -80,6 +80,23 @@ static struct rte_udp_hdr pkt_udp_hdr; /**< UDP header of tx packets. */
 // static uint32_t timestamp_init_req; /**< Timestamp initialization request. */
 // static uint64_t timestamp_initial[RTE_MAX_ETHPORTS];
 
+static inline uint8_t is_logload_increased(int16_t load, int16_t current_load_threshold,
+	int16_t lowest_load_threshold){
+
+	if(load > current_load_threshold && current_load_threshold < INT16_MAX)
+		return 1;
+
+	return 0;
+}
+
+static inline uint8_t is_logload_decreased(int16_t load, int16_t current_load_threshold,
+	int16_t lowest_load_threshold){
+	if(load <= current_load_threshold/2 && current_load_threshold/2 >= lowest_load_threshold)
+		return 1;
+
+	return 0;
+}
+
 static inline void
 print_ether_addr(const char *what, const struct rte_ether_addr *eth_addr)
 {
@@ -459,37 +476,34 @@ pkt_burst_transmit(struct fwd_stream *fs)
 	ip_service_pair.service_id = pkt_alt_hdr.service_id_list[0];
 	ip_service_pair.ip_dst = pkt_alt_hdr.host_ip_list[0];
 	int16_t load = (int16_t) pkt_alt_hdr.host_queue_depth[0];
-	while(load <= logarithmic_threshold && run_flag){
+	while(run_flag){
 		int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) &ip_service_pair, &lookup_result);
 		if(likely(ret>=0)){
 			int16_t* ptr = (int16_t*) lookup_result;
 			load = (int16_t) *ptr;
 		}
 
-		if(load <= logarithmic_threshold/2 && load >= gossip_load_threshold)
+		uint8_t load_increased = is_logload_increased(load, logarithmic_threshold, gossip_load_threshold);
+		if(load_increased){
+			//logarithmic_threshold = logarithmic_threshold + 4; // AIMD?
+			logarithmic_threshold = logarithmic_threshold*2;			
+			send_flag = 1;
 			break;
+		}
+
+		uint8_t load_decreased = is_logload_decreased(load, logarithmic_threshold, gossip_load_threshold);
+		if(load_decreased){
+			logarithmic_threshold = logarithmic_threshold/2;  		
+			send_flag = 1;
+			break;
+		}
 	}
 
-	if(load > logarithmic_threshold && logarithmic_threshold < INT16_MAX){
-		//logarithmic_threshold = logarithmic_threshold + 4; // AIMD?
-		logarithmic_threshold = logarithmic_threshold*2;
+	if(send_flag){
 		piggyback_index = piggyback_index + 1;
 		piggyback_samples[piggyback_index].req_counter_value = load;
 		piggyback_samples[piggyback_index].threshold_value = logarithmic_threshold;
 		piggyback_samples[piggyback_index].req_qd_array_index = rte_atomic64_read(&req_qd_array_index);
-		send_flag = 1;
-	}
-
-	if(load <= logarithmic_threshold/2 && logarithmic_threshold >= gossip_load_threshold){
-		piggyback_index = piggyback_index + 1;
-		logarithmic_threshold = logarithmic_threshold/2;
-		piggyback_samples[piggyback_index].req_counter_value = load;
-		piggyback_samples[piggyback_index].threshold_value = logarithmic_threshold;
-		piggyback_samples[piggyback_index].req_qd_array_index = rte_atomic64_read(&req_qd_array_index);  		
-		send_flag = 1;
-	}
-
-	if(send_flag){
 		nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, local_nb_pkt_per_burst);
 		rte_atomic16_clear(&request_counter);
 		rte_smp_mb();
