@@ -89,12 +89,20 @@ static inline uint8_t is_logload_increased(int16_t load, int16_t current_load_th
 	return 0;
 }
 
+static inline void increase_threshold(int16_t* current_load_threshold){
+	*current_load_threshold = *current_load_threshold*2;
+}
+
 static inline uint8_t is_logload_decreased(int16_t load, int16_t current_load_threshold,
 	int16_t lowest_load_threshold){
 	if(load <= current_load_threshold/2 && current_load_threshold/2 >= lowest_load_threshold)
 		return 1;
 
 	return 0;
+}
+
+static inline void decrease_threshold(int16_t* current_load_threshold){
+	*current_load_threshold = *current_load_threshold/2;
 }
 
 static inline void
@@ -486,14 +494,16 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		uint8_t load_increased = is_logload_increased(load, logarithmic_threshold, gossip_load_threshold);
 		if(load_increased){
 			//logarithmic_threshold = logarithmic_threshold + 4; // AIMD?
-			logarithmic_threshold = logarithmic_threshold*2;			
+			//logarithmic_threshold = logarithmic_threshold*2;
+			increase_threshold(&logarithmic_threshold);			
 			send_flag = 1;
 			break;
 		}
 
 		uint8_t load_decreased = is_logload_decreased(load, logarithmic_threshold, gossip_load_threshold);
 		if(load_decreased){
-			logarithmic_threshold = logarithmic_threshold/2;  		
+			//logarithmic_threshold = logarithmic_threshold/2;  		
+			decrease_threshold(&logarithmic_threshold);
 			send_flag = 1;
 			break;
 		}
