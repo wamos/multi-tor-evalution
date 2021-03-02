@@ -79,30 +79,37 @@ static struct rte_udp_hdr pkt_udp_hdr; /**< UDP header of tx packets. */
 // static bool timestamp_enable; /**< Timestamp enable */
 // static uint32_t timestamp_init_req; /**< Timestamp initialization request. */
 // static uint64_t timestamp_initial[RTE_MAX_ETHPORTS];
+uint16_t array_size = 12;
+static int16_t thrsh_list[] = {0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+uint16_t thrsh_index=0;
+uint16_t thrsh_index_lower_bound;
 
-static inline uint8_t is_logload_increased(int16_t load, int16_t current_load_threshold,
-	int16_t lowest_load_threshold){
+int16_t past_load;
+int16_t past_gossip;
 
-	if(load > current_load_threshold && current_load_threshold < INT16_MAX)
+static inline uint8_t is_load_increased(int16_t load){
+	if(thrsh_index + 1 < array_size && load > thrsh_list[thrsh_index + 1])
 		return 1;
-
 	return 0;
 }
 
-static inline void increase_threshold(int16_t* current_load_threshold){
-	*current_load_threshold = *current_load_threshold*2;
+static inline void increase_threshold(){
+	if(thrsh_index + 1 < array_size)
+		thrsh_index = thrsh_index+1;
 }
 
-static inline uint8_t is_logload_decreased(int16_t load, int16_t current_load_threshold,
-	int16_t lowest_load_threshold){
-	if(load <= current_load_threshold/2 && current_load_threshold/2 >= lowest_load_threshold)
+static inline uint8_t is_load_decreased(int16_t load){
+	if( thrsh_index - 1 > 0 && 
+	thrsh_index -1 >= thrsh_index_lower_bound &&
+	load <= thrsh_list[thrsh_index - 1])
 		return 1;
-
 	return 0;
 }
 
-static inline void decrease_threshold(int16_t* current_load_threshold){
-	*current_load_threshold = *current_load_threshold/2;
+static inline void decrease_threshold(){
+	//use thrsh_index_lower_bound if we want to set a lower bound of index
+	if(thrsh_index - 1 > 0 && thrsh_index -1 >= thrsh_index_lower_bound)
+		thrsh_index = thrsh_index-1;
 }
 
 static inline void
@@ -491,28 +498,31 @@ pkt_burst_transmit(struct fwd_stream *fs)
 			load = (int16_t) *ptr;
 		}
 
-		uint8_t load_increased = is_logload_increased(load, logarithmic_threshold, gossip_load_threshold);
-		if(load_increased){
-			//logarithmic_threshold = logarithmic_threshold + 4; // AIMD?
-			//logarithmic_threshold = logarithmic_threshold*2;
-			increase_threshold(&logarithmic_threshold);			
+		//uint8_t load_increased = is_load_increased(load);
+		if(is_load_increased(load) && load != past_gossip){
+			increase_threshold();			
 			send_flag = 1;
 			break;
 		}
 
-		uint8_t load_decreased = is_logload_decreased(load, logarithmic_threshold, gossip_load_threshold);
-		if(load_decreased){
-			//logarithmic_threshold = logarithmic_threshold/2;  		
-			decrease_threshold(&logarithmic_threshold);
+		//uint8_t load_decreased = is_load_decreased(load);
+		if(is_load_decreased(load) && load != past_gossip){ 		
+			decrease_threshold();
+			send_flag = 1;
+			break;
+		}
+
+		if(load == 0 && past_load > 0){
 			send_flag = 1;
 			break;
 		}
 	}
+	past_load = load;
 
 	if(send_flag){
 		piggyback_index = piggyback_index + 1;
 		piggyback_samples[piggyback_index].req_counter_value = load;
-		piggyback_samples[piggyback_index].threshold_value = logarithmic_threshold;
+		piggyback_samples[piggyback_index].threshold_value = thrsh_list[thrsh_index];
 		piggyback_samples[piggyback_index].req_qd_array_index = rte_atomic64_read(&req_qd_array_index);
 		nb_tx = rte_eth_tx_burst(fs->tx_port, fs->tx_queue, pkts_burst, local_nb_pkt_per_burst);
 		rte_atomic16_clear(&request_counter);
@@ -575,27 +585,21 @@ pkt_burst_transmit(struct fwd_stream *fs)
 static void
 tx_only_begin(portid_t pi)
 {
-	uint16_t pkt_data_len;
-	int dynf;
-
-	pkt_data_len = (uint16_t) (tx_pkt_length - (
-					sizeof(struct rte_ether_hdr) +
-					sizeof(struct rte_ipv4_hdr) +
-					sizeof(struct rte_udp_hdr)));
-	//setup_pkt_udp_ip_headers(&pkt_ip_hdr, &pkt_udp_hdr, pkt_data_len);
-	/*
-	 * Initialize Ethernet header.
-	 */
-	// rte_ether_unformat_addr(mac_src_addr, &eth_hdr.s_addr);
-	// print_ether_addr("ETH_SRC_ADDR:", &eth_hdr.s_addr);
-	// rte_ether_unformat_addr(mac_dst_addr, &eth_hdr.d_addr);
-	// print_ether_addr("ETH_DST_ADDR:", &eth_hdr.d_addr);
-	eth_hdr.ether_type = rte_cpu_to_be_16(RTE_ETHER_TYPE_IPV4);
+	printf("setting load threshold\n");
+	thrsh_index_lower_bound = 0;
+	for(uint16_t i=0; i < array_size; i++){
+		if(thrsh_list[i] >= gossip_load_threshold){
+			thrsh_index_lower_bound = i;
+			break;
+		}
+	}
+	printf("thrsh_index_lower_bound:%" PRId16 "\n",thrsh_index_lower_bound);
+	thrsh_index = 0;
 }
 
 struct fwd_engine tx_only_engine = {
 	.fwd_mode_name  = "txonly",
-	.port_fwd_begin = NULL, //tx_only_begin,
+	.port_fwd_begin = tx_only_begin,
 	.port_fwd_end   = NULL,
 	.packet_fwd     = pkt_burst_transmit,
 };
