@@ -7,7 +7,8 @@ LAMBDA=$3
 GOSSIP=$4
 LOAD_DELTA=$5
 REDIRECT_BOUND=$6
-RELAUNCH=$7
+GOSSIP_THRESH=$7
+RELAUNCH=$8
 
 RATE_in_k=$((LAMBDA / 1000))
 echo "rate:"$RATE_in_k"kRPS"
@@ -24,10 +25,10 @@ for ip in "${switch_ip_list[@]}"
 do
 	echo ${LAUNCH_OR_KILL} " dpdk-switch-" ${n} " on " ${ip}
 	if [[ "$LAUNCH_OR_KILL" == "launch" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_switch_launch.sh ${FWD_MODE} ${ip} ${n} ${LOGFILE} ${GOSSIP} ${LOAD_DELTA} ${RATE_in_k}"k" ${REDIRECT_BOUND} 2>&1 &
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_switch_launch.sh ${FWD_MODE} ${ip} ${n} ${LOGFILE} ${GOSSIP} ${LOAD_DELTA} ${RATE_in_k}"k" ${REDIRECT_BOUND} ${GOSSIP_THRESH} 2>&1 &
 		#echo "launch!"
 	elif [[ "$LAUNCH_OR_KILL" == "check" ]]; then
-		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_switch_check.sh  ${FWD_MODE} ${ip} ${n} ${LOGFILE} ${GOSSIP} ${LOAD_DELTA} ${RATE_in_k}"k" ${REDIRECT_BOUND} ${RELAUNCH} 2>&1 &
+		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_switch_check.sh  ${FWD_MODE} ${ip} ${n} ${LOGFILE} ${GOSSIP} ${LOAD_DELTA} ${RATE_in_k}"k" ${REDIRECT_BOUND} ${GOSSIP_THRESH} ${RELAUNCH} 2>&1 &
 		sleep 2
 	elif [[ "$LAUNCH_OR_KILL" == "config" ]]; then
 		ssh -i ~/efs/replica-selection-key-pair.pem ec2-user@${ip} 'sh -s' < run_dpdk_switch_config.sh ${FWD_MODE} ${ip} ${n} 2>&1 &
