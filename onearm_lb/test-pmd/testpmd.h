@@ -345,6 +345,16 @@ struct piggy_tx_log{
 	int64_t req_qd_array_index;
 };
 
+#define HOST_PER_RACK 1
+//ST: req redir tx log
+struct redir_tx_log{
+	int64_t req_qd_array_index;
+	uint16_t service_id_list[HOST_PER_RACK];
+  	uint32_t host_ip_list[HOST_PER_RACK];
+	uint16_t load_list[HOST_PER_RACK];
+	struct timespec redir_ts;
+};
+
 /***
 * Our own logging system
 ***/
@@ -362,11 +372,17 @@ struct piggy_tx_log{
 #define fixed_request_gossip 0
 #define logarithmic_thresholds_gossip 1
 #define EWMA_thresholds_gossip 0
+#define redirection_piggyback 1
+#define REDIR_LOG 1
 
 extern volatile int16_t gossip_load_threshold;
 extern volatile int16_t logarithmic_threshold;
 extern volatile int16_t ewma_threshold;
 extern volatile uint8_t run_flag;
+
+extern struct redir_tx_log* redir_tx_samples;
+extern rte_atomic64_t redir_tx_counter;
+extern FILE* redir_tx_fp;
 
 extern struct piggy_tx_log* piggyback_samples;
 extern volatile uint32_t piggyback_index;

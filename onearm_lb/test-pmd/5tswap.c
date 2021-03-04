@@ -47,6 +47,11 @@ struct timespec ts1 ={
 	.tv_nsec = 0,
 	.tv_sec = 0,
 };
+
+struct timespec redir_ts ={
+	.tv_nsec = 0,
+	.tv_sec = 0,
+};
 //#ifdef REDIRECT_DEBUG_PRINT
 static inline void
 print_macaddr(const char* string, struct rte_ether_addr *macaddr){
@@ -379,6 +384,24 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					//print_ipaddr("actual_src_ip", ipv4_header->dst_addr);
 					h.alt->actual_src_ip = ipv4_header->dst_addr;
 				}
+				#if redirection_piggyback==1
+				else{ // for h.alt->redirection !=0, i.e. > 0
+					uint64_t load;
+					//parse piggyback load info for each host from the other ToR
+					for(uint16_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
+						ip_service_key.service_id = h.alt->service_id_list[host_index];
+						ip_service_key.ip_dst = h.alt->host_ip_list[host_index];
+						load = (uint64_t) h.alt->host_queue_depth[host_index];
+						int ret = rte_hash_inplace_update_data_with_key(fs->ip2load_table, (void*) &ip_service_key, &load);
+						if(unlikely(ret < 0))
+							printf("rte_hash_inplace_update_data_with_key failed!\n");
+						// else{
+						// 	printf("redir_pgy_recv,");
+						// 	print_ip2load(ip_service_key.ip_dst, load);
+						// }	
+					}
+				}
+				#endif
 				//printf("redirection:%" PRIu8 "\n", h.alt->redirection);
 
 
@@ -522,6 +545,47 @@ pkt_burst_redirection(struct fwd_stream *fs){
 					printf("remote_min_load:%" PRIu64 "\n", remote_min_load);
 					#endif
 
+					#if redirection_piggyback==1
+
+					#if REDIR_LOG==1
+					int64_t redir_tx_index = rte_atomic64_read(&redir_tx_counter);
+					redir_tx_samples[redir_tx_index].req_qd_array_index = rte_atomic64_read(&req_qd_array_index);
+					#endif
+
+					uint32_t iter = 0;
+					uint32_t index = 0;
+					const void *next_key;
+					void *next_data;
+					clock_gettime(CLOCK_REALTIME, &redir_ts);
+					while (rte_hash_iterate(fs->ip2load_table, &next_key, &next_data, &iter) >= 0) {
+						struct table_key* ip_service_pair = (struct table_key*) (uintptr_t) next_key;
+						int ret = rte_hash_lookup_data(fs->ip2load_table, (void*) ip_service_pair, &lookup_result);
+						uint16_t* ptr = (uint16_t*) lookup_result;
+						if(unlikely(ret < 0))
+							printf("not found in ip2load table for redirection piggyback\n");
+						
+						for(uint32_t host_index = 0; host_index < HOST_PER_RACK; host_index++){
+							if(ip_service_pair->ip_dst == fs->local_ip_list[host_index]){
+								h.alt->service_id_list[index] = ip_service_pair->service_id;
+								h.alt->host_ip_list[index] = ip_service_pair->ip_dst;
+								h.alt->host_queue_depth[index] = (uint16_t) *ptr;
+								//record info into redir_tx_samples
+								#if REDIR_LOG==1
+								redir_tx_samples[redir_tx_index].service_id_list[index] = ip_service_pair->service_id;
+								redir_tx_samples[redir_tx_index].host_ip_list[index] = ip_service_pair->ip_dst;
+								redir_tx_samples[redir_tx_index].load_list[index] = (uint16_t) *ptr;
+								redir_tx_samples[redir_tx_index].redir_ts=redir_ts;
+								#endif
+								//printf("redir_pgy_sent,");
+								//print_ip2load(h.alt->host_ip_list[index],h.alt->host_queue_depth[index]);
+								index++;
+								break;
+							}
+						}
+					}					
+					#endif
+
+					rte_atomic64_inc(&redir_tx_counter);
 					h.alt->redirection+=1;
 				}
 

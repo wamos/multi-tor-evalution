@@ -192,6 +192,10 @@ volatile int16_t gossip_load_threshold = 0;
 volatile int16_t logarithmic_threshold;
 volatile int16_t ewma_threshold;
 
+struct redir_tx_log* redir_tx_samples = NULL;
+rte_atomic64_t redir_tx_counter;
+FILE* redir_tx_fp = NULL;
+
 uint8_t info_exchange_enabled = 0;
 uint8_t replica_selection_enabled = 0;
 
@@ -1634,6 +1638,12 @@ init_hashtable(void){
 	}
 	#endif
 
+	#if REDIR_LOG==1
+	redir_tx_samples = rte_zmalloc("redir_tx_samples", sizeof(struct redir_tx_log)*120*40000, 0);
+	if(redir_tx_samples == NULL){
+		rte_panic("redir_tx_samples malloc failure\n");
+	}
+	#endif
 	//* Add a key-value pair to an existing hash table. This operation is not multi-thread safe
 	//int rte_hash_add_key_data(const struct rte_hash *h, const void *key, void *data);
 	// * Find a key-value pair in the hash table. This operation is multi-thread safe with regarding to other lookup threads
@@ -2137,7 +2147,8 @@ init_config(void)
 	rte_atomic16_clear(&request_counter);
 	rte_atomic64_init(&req_qd_array_index);
 	rte_atomic64_clear(&req_qd_array_index);
-
+	rte_atomic64_init(&redir_tx_counter);
+	rte_atomic64_clear(&redir_tx_counter);
 	/* create a gro context for each lcore */
 	gro_param.gro_types = RTE_GRO_TCP_IPV4;
 	gro_param.max_flow_num = GRO_MAX_FLUSH_CYCLES;
@@ -3707,6 +3718,24 @@ pmd_test_exit(void)
 	}
 	fclose(pgy_ts_fp);
 	rte_free(piggyback_samples);
+	#endif
+
+	#if REDIR_LOG==1
+	printf("Dump redirection tx samples\n");
+	uint32_t readable_redir_tx_counter = (uint32_t) rte_atomic64_read(&redir_tx_counter);
+	printf("redir_tx_counter:%"PRIu32 "\n", readable_redir_tx_counter);
+	if(readable_redir_tx_counter >= 1){
+		for(uint32_t index = 1; index < readable_redir_tx_counter; index++){
+			fprintf(redir_tx_fp, "%" PRId64 ",%" PRIu16 ",%" PRId64 ",%" PRId64 "\n",
+				redir_tx_samples[index].req_qd_array_index, 
+				redir_tx_samples[index].load_list[0], 
+				redir_tx_samples[index].redir_ts.tv_sec,
+				redir_tx_samples[index].redir_ts.tv_nsec
+				);
+		}
+	}	
+	fclose(redir_tx_fp);	
+	rte_free(redir_tx_samples);
 	#endif
 
 	printf("\nBye...\n");

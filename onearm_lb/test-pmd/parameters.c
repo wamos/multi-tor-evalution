@@ -575,6 +575,7 @@ int parse_switch_logfile(const char *expname){
 	const char tor_rx_ts_type[] = ".trxts";
 	const char tor_tx_ts_type[] = ".ttxts";
 	const char tor_pgy_ts_type[] = ".pgy";
+	const char tor_redir_ts_type[] = ".rdr";
 	char logfilename[100];
 
 	#if FORWARD_LATENCY_LOG==1
@@ -618,6 +619,14 @@ int parse_switch_logfile(const char *expname){
 	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_pgy_ts_type), "%s%s%s", log_prefix, expname, tor_pgy_ts_type);
 	pgy_ts_fp = fopen(logfilename, "w+");
     if(pgy_ts_fp == NULL){
+       return -1;
+    }
+	#endif
+
+	#if REDIR_LOG==1
+	snprintf(logfilename, sizeof(log_prefix) + 50 + sizeof(tor_redir_ts_type), "%s%s%s", log_prefix, expname, tor_redir_ts_type);
+	redir_tx_fp = fopen(logfilename, "w+");
+    if(redir_tx_fp == NULL){
        return -1;
     }
 	#endif
