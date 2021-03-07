@@ -427,7 +427,7 @@ extern struct rte_fdir_conf fdir_conf;
 //ST: tx packets are fixed sized here
 #define TXONLY_DEF_PACKET_LEN 256
 #define MAX_SINGLE_THREAD_CONNECTIONS 100
-#define TS_ARRAY_SIZE 65536*32 // 2^16 the size of timestamp array and poisson_arrival
+#define TS_ARRAY_SIZE 65536*128 // 2^16 the size of timestamp array and poisson_arrival
 #define POISSON_ARRIVAL_ARRAY_SIZE 65536
 #define RX_TIMESTAMP_LOG 0
 #define TX_TIMESTAMP_LOG 0 

@@ -1511,15 +1511,28 @@ init_hashtable(void){
 		rte_panic("malloc failure\n");
 	}
 
-	latency_array_size= (uint32_t) lambda_rate*600; // sufficent for a 10-min experiment
+	latency_array_size= (uint32_t) lambda_rate*60; // sufficent for a 10-min experiment
 	latency_samples = rte_zmalloc("latency_samples", sizeof(uint64_t) * latency_array_size, 0);
+	if(latency_samples == NULL){
+		rte_panic("latency_samples malloc failure\n");
+	}
 	redirection_samples = rte_zmalloc("redirection_samples", sizeof(uint8_t) * latency_array_size, 0);
+	if(redirection_samples == NULL){
+		rte_panic("redirection_samples malloc failure\n");
+	}
 	server_processing_time_samples = rte_zmalloc("server_processing_time_samples", sizeof(uint64_t) * latency_array_size, 0);
+	if(server_processing_time_samples == NULL){
+		rte_panic("server_processing_time_samples malloc failure\n");
+	}
 	#if TX_TIMESTAMP_LOG==1
 	tx_timestamps = rte_zmalloc("tx_timestamps", sizeof(struct timespec) * latency_array_size, 0);
+	if(tx_timestamps == NULL)
+		rte_panic("tx_timestamps malloc failure\n");
 	#endif
 	#if RX_TIMESTAMP_LOG==1
 	rx_timestamps = rte_zmalloc("rx_timestamps", sizeof(struct timespec) * latency_array_size, 0);
+	if(rx_timestamps == NULL)
+		rte_panic("rx_timestamps malloc failure\n");
 	#endif
 
 	//ST: shown configured lambda_rate from parameters.c
