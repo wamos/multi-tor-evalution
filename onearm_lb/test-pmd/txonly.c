@@ -87,15 +87,35 @@ uint16_t thrsh_index_lower_bound;
 int16_t past_load;
 int16_t past_gossip;
 
+#if EWMA_thresholds_gossip==1
+static int16_t upper_thrsh_list[] = {0, 1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+int16_t ewma_load = 1;
+uint16_t upper_thrsh_index=0;
+#endif
+
 static inline uint8_t is_load_increased(int16_t load){
 	if(thrsh_index + 1 < array_size && load > thrsh_list[thrsh_index + 1])
 		return 1;
+
+	#if EWMA_thresholds_gossip==1
+	if(	upper_thrsh_index + 1 < array_size &&
+		load > ewma_load  && 
+		load > ewma_load + upper_thrsh_list[upper_thrsh_index]
+	)
+		return 1;
+	#endif
+
 	return 0;
 }
 
 static inline void increase_threshold(){
 	if(thrsh_index + 1 < array_size)
 		thrsh_index = thrsh_index+1;
+
+	#if EWMA_thresholds_gossip==1
+	if(upper_thrsh_index + 1 < array_size)
+		upper_thrsh_index = upper_thrsh_index + 1;
+	#endif
 }
 
 static inline uint8_t is_load_decreased(int16_t load){
@@ -103,6 +123,15 @@ static inline uint8_t is_load_decreased(int16_t load){
 	thrsh_index -1 >= thrsh_index_lower_bound &&
 	load <= thrsh_list[thrsh_index - 1])
 		return 1;
+
+	#if EWMA_thresholds_gossip==1
+	if( upper_thrsh_index - 1 > 0 &&
+		load > ewma_load  && 
+		load <=  ewma_load + upper_thrsh_list[upper_thrsh_index]
+	)
+		return 1;
+	#endif
+	
 	return 0;
 }
 
@@ -110,6 +139,11 @@ static inline void decrease_threshold(){
 	//use thrsh_index_lower_bound if we want to set a lower bound of index
 	if(thrsh_index - 1 > 0 && thrsh_index -1 >= thrsh_index_lower_bound)
 		thrsh_index = thrsh_index-1;
+
+	#if EWMA_thresholds_gossip==1
+	if(upper_thrsh_index - 1 > 0)
+		upper_thrsh_index = upper_thrsh_index - 1;
+	#endif
 }
 
 static inline void
@@ -518,6 +552,11 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		}
 	}
 	past_load = load;
+
+	#if EWMA_thresholds_gossip==1
+	int16_t current_load = (load/5) + (ewma_load*4/5);
+	ewma_load = current_load;
+	#endif
 
 	if(send_flag){
 		piggyback_index = piggyback_index + 1;

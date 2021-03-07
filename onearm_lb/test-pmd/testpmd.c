@@ -361,8 +361,8 @@ uint8_t dcb_test = 0;
  * Configurable number of RX/TX queues.
  */
 queueid_t nb_hairpinq; /**< Number of hairpin queues per port. */
-queueid_t nb_rxq = 5; /**< Number of RX queues per port. */
-queueid_t nb_txq = 5; /**< Number of TX queues per port. */
+queueid_t nb_rxq = 7; /**< Number of RX queues per port. */
+queueid_t nb_txq = 7; /**< Number of TX queues per port. */
 
 /*
  * Configurable number of RX/TX ring descriptors.
