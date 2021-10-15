@@ -240,8 +240,7 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 	pkt_seg->next = NULL; /* Last segment of packet. */
 
 	//ip layer setup
-	pkt_ip_hdr.src_addr = fs->client_alt_header.actual_src_ip; // client_self_ip
-	//pkt_ip_hdr.dst_addr = fs->client_alt_header.alt_dst_ip;
+	pkt_ip_hdr.src_addr = fs->client_alt_header.actual_src_ip; // client_self_ip	
 
 	int ret;
 	//random default destination
@@ -274,6 +273,9 @@ pkt_burst_prepare(struct rte_mbuf *pkt, struct rte_mempool *mbp,
 			printf("unknown!\n");
 		}
 	}
+
+	//  by-passing the DPDK switch totally
+	// 	pkt_ip_hdr.dst_addr = fs->client_alt_header.alt_dst_ip;
 
 	pkt_ip_hdr.hdr_checksum = 0;
     pkt_ip_hdr.hdr_checksum = rte_ipv4_cksum(&pkt_ip_hdr);
@@ -480,6 +482,8 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		uint32_t req_index = req_id%TS_ARRAY_SIZE;
 
 		if(recv_req_ptr->actual_src_ip != recv_ipv4_ptr->dst_addr){
+			//print_ipaddr("actual_src_ip", recv_req_ptr->actual_src_ip);
+			// print_ipaddr("dst_addr", recv_ipv4_ptr->dst_addr);
 			printf("WTF!, req id:%" PRIu32 "\n", req_id);
 		}
 		
@@ -501,7 +505,7 @@ pkt_burst_transmit(struct fwd_stream *fs)
 		latency_array_index++;
 
 		//printf("%" PRIu64 "\n", req_id, latency);
-		//printf("req id:%" PRIu32 ", latency:%" PRIu64 "\n", req_id, latency);	
+		//printf("req id:%" PRIu32 ", latency:%" PRIu64 "\n", req_id, latency_samples[req_id]);	
 		// if(ts1.tv_sec == ts2.tv_sec){
 		// 	//fprintf(fp, "%" PRIu64 "\n", ts2.tv_nsec - ts1.tv_nsec);
 		// 	printf("%" PRIu64 "\n", ts_array[req_id].rx_timestamp.tv_nsec - ts_array[req_id].tx_timestamp.tv_nsec);
